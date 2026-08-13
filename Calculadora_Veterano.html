@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="calculadora_pmerj.css">
+  <style>
+    /* Tema avermelhado — diferencia a calculadora de veterano (inativo) da ativa (azul).
+       Sobrescreve a cor de destaque SÓ aqui; o CSS compartilhado fica intacto. */
+    :root {
+      --acento: #b91c1c;            /* vermelho no lugar do azul (era ~#1D4ED8) */
+    }
+  </style>
+  <title>Simulador de Remuneração — Veterano (Inativo) </title>
+  <script src="Calculadora_Veterano_v6.js" defer></script>
+</head>
+
+<body class="veteranosss">
+  <div class="wrap">
+    <header class="veterano">
+    <!-- <header style="background: #b91c1c; color: #fff; margin-bottom:24px; border-radius:0 0 8px 8px;"> -->
+      <div class="header-text">
+        <div class="brasao"></div>
+        <h1>Simulador de Remuneração — Veterano (Inativo)</h1>
+        <p>Versão para inativos — Indenização de Adic. de Inatividade no lugar da GRAM</p>
+      </div>
+    </header>
+
+
+    <!-- ====================== CHAVES DE REAJUSTE ====================== -->
+    <!-- Reajustes compostos sobre o soldo (no JS). Afetam todas as rubricas,
+       pois todas derivam do soldo.
+       1º = +5,62% | 2º = +5,62% sobre o já reajustado.
+       Acumulado: 1,0562 × 1,0562 = 1,11556 -> +11,56%. -->
+    <div class="card" style="margin-bottom:16px;">
+      <label for="reajuste"
+        style="display:flex; align-items:center; gap:10px; font-weight:700; cursor:pointer; margin:0;">
+        <input type="checkbox" id="reajuste">
+        1º reajuste — +5,62% sobre o soldo
+      </label>
+      <label for="reajuste2"
+        style="display:flex; align-items:center; gap:10px; font-weight:700; cursor:pointer; margin:10px 0 0;">
+        <input type="checkbox" id="reajuste2" disabled>
+        2º reajuste — +5,62% sobre o soldo já reajustado
+      </label>
+      <div class="hint" style="margin-top:8px; font-size:12.5px">Reajustes compostos: o 2º incide sobre o soldo já reajustado pelo 1º. O
+        2º só fica disponível com o 1º ligado.</div>
+    </div>
+
+
+    <div class="grid">
+
+
+      <!-- ============ CARD 1 — POSTO / GRADUAÇÃO (DEFINIDO) ============ -->
+      <div class="field">
+        <label for="posto">Posto / Graduações — Soldo</label>
+        <select id="posto">
+          <option value="3270.73" data-gret="192.5"> Cel PM </option>
+          <option value="2943.65" data-gret="192.5">Ten Cel PM </option>
+          <option value="2649.28" data-gret="192.5">Maj PM </option>
+          <option value="2384.35" data-gret="150">Cap PM </option>
+          <option value="2145.60" data-gret="150">1º Ten PM </option>
+          <option value="1929.73" data-gret="150">2º Ten PM </option>
+          <option value="1736.76" data-gret="150">Asp Of PM </option>
+          <option value="1141.49" data-gret="122.5">Cad PM </option>
+          <option value="1736.76" data-gret="150">Sub Ten PM</option>
+          <option value="1596.12" data-gret="150">1º Sgt PM </option>
+          <option value="1448.94" data-gret="150">2º Sgt PM </option>
+          <option value="1318.11" data-gret="150">3º Sgt PM </option>
+          <option value="1141.49" data-gret="150">Cb PM </option>
+          <option value="991.03" data-gret="150" >Sd PM </option>
+          <option value="817.67" data-gret="122.5">Aluno CFP </option>
+          <option value="0" selected> Insira o Grau Hierárquico Desejado </option>
+        </select>
+      </div>
+
+      <!-- GHP — Gratificação de Habilitação Profissional
+           Quem escolhe é o usuário (curso mais elevado concluído).
+           value = % sobre o soldo  |  cálculo no JS: soldo * value / 100 -> LINHA no resultado -->
+
+      <div class="field">
+        <label for="habilitacao"> Grat. de Habilitação Profissional </label>
+        <select name="" id="habilitacao">
+          <option value="160">160% - CCEM — Curso de Comando e Estado-Maior</option>
+          <option value="110">110% - CAO / CAS — Curso de Aperfeiçoamento de Oficiais / Sargentos</option>
+          <option value="85">85% - Curso de Especialização ou equivalente</option>
+          <option value="80">80% - CFO / CFS — Curso de Formação de Oficiais / Sargentos</option>
+          <option value="75" >75% - CFP — Curso de Formação de Praça </option>
+          <option value="0" selected> ------- </option>
+        </select>
+        <div class="hint">Paga apenas o curso mais elevado concluído.</div>
+      </div>
+            <!-- IAI — Indenização de Adicional de Inatividade (substitui a GRAM) -->
+      <div class="field">
+        <label for="iai-aliquota">Indenização de Adic. de Inatividade — alíquota</label>
+        <select id="iai-aliquota">
+          <option value="20">20%</option>
+          <option value="25">25%</option>
+          <option value="30">30%</option>
+           <option value="0" selected> ------- </option>
+        </select>
+        <div class="hint">Verba indenizatória: não entra na base da Contribuição Militar (SPSMERJ) nem do IRPF.</div>
+      </div>
+
+<!-- ============ CARD AUXILIAR — TRIÊNIOS PELA DATA DE PRAÇA ============ -->
+      <!-- Helper: usuário informa a data de praça; o JS conta os triênios.
+         triênios = Math.floor( (hoje - data_praca) em dias / 1095 )   (1095 = 3 anos, sem bissexto)
+         percentual = (a confirmar) 1º triênio 10%, +5% por triênio, teto 60%
+         comportamento ao calcular: preencher #trienio automaticamente OU só informar? (a confirmar)
+         Nota de estilo: input[type=date] não está no CSS compartilhado (que só cobre number/select),
+         então pode aparecer com visual padrão do navegador — ajuste de estilo fica para depois. -->
+      <div class="field">
+        <label for="trienio">Triênio — tempo de serviço (%)</label>
+        <select id="trienio">
+          <option value="0" selected>0%</option>
+          <option value="10">10%</option>
+          <option value="15">15%</option>
+          <option value="20">20%</option>
+          <option value="25">25%</option>
+          <option value="30">30%</option>
+          <option value="35">35%</option>
+          <option value="40">40%</option>
+          <option value="45">45%</option>
+          <option value="50">50%</option>
+          <option value="55">55%</option>
+          <option value="60">60%</option>
+        </select>
+        <div class="hint">Aumenta conforme o tempo de serviço. Limite de 60%.</div>
+      </div>
+
+      <!-- Card recolhível (<details>): nasce fechado para dar mais respiro à página;
+         clicar no <summary> expande. Os id internos não mudaram. -->
+      <!-- FUSPOM — fundo de saúde (escolhido pelo usuário). DESCONTO.
+           value = % | base = SOMENTE o soldo
+           cálculo no JS: soldo * value / 100 -> LINHA de desconto (após Contrib. Militar) -->
+      <div class="field">
+        <label for="fuspom">FUSPOM — fundo de saúde</label>
+        <select id="fuspom">
+          <option value="0" selected>Não contribui</option>
+          <option value="10">10%</option>
+          <option value="11">11%</option>
+          <option value="12">12%</option>
+          <option value="13">13%</option>
+          <option value="14">14%</option>
+          <option value="15">15%</option>
+          <option value="16">16%</option>
+          <option value="17">17%</option>
+          <option value="18">18%</option>
+        </select>
+        <div class="hint">Incide apenas sobre o soldo. Descontado após a Contribuição Militar.</div>
+      </div>
+
+      <!-- DEPENDENTES (IR) — controle próprio, perto do FUSPOM.
+           Cada dependente abate R$ 189,59 do Rendimento Tributável. -->
+      <div class="field">
+        <label for="dependentes">Dependentes para IR</label>
+        <input type="number" id="dependentes" value="0" min="0" step="1" inputmode="numeric">
+        <div class="hint">Cada dependente abate R$ 189,59 da base de cálculo do IR.</div>
+      </div>
+
+
+
+
+
+      <details class="card">
+        <summary style="cursor:pointer; color:var(--acento); font-weight:800; font-size:13px;  text-decoration: underline  1px;">Não sabe seus triênios?
+          Calcule pela data de praça</summary>
+        <div style="margin-top:18px;">
+          <div class="field">
+            <label for="data-praca"> Data de praça: </label>
+            <input type="date" id="data-praca"> <span class="hint" style="flex:1;">mês / dia / ano</span>
+            <div class="hint"> Data de Ingresso na corporação.</div>
+          </div>
+
+          <button type="button" class="cen-btn" id="btn-trienios" style="width:100%; margin-bottom:18px;">Calcular
+            triênios</button>
+          <div class="field">
+            <label>Resultado</label>
+            <div class="slider-row">
+              <span class="hint" style="flex:1;">Triênios completos / Percentual sugerido</span>
+              <span class="slider-val" id="trienios-count">—</span>
+              <span class="slider-val" id="trienios-pct">—</span>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- ============ CARD — OUTRAS VANTAGENS REMUNERATÓRIAS (até 5) ============ -->
+      <!-- TRIBUTÁVEIS: somam à Rem. Básica para formar a Rem. Bruta. -->
+      <div class="card">
+        <h2><span class="num">+</span> Outras vantagens remuneratórias</h2>
+        <div id="vant-lista"><!-- campos (máx. 5) --></div>
+        <button type="button" class="cen-btn" id="btn-add-vant" style="width:100%; margin-top:10px;">+ Adicionar vantagem</button>
+        <div class="hint" style="margin-top:8px;">Tributáveis. Até 5 campos. Somam à Remuneração Básica para formar a Remuneração Bruta.</div>
+      </div>
+
+      <!-- ============ CARD — VERBAS INDENIZATÓRIAS (até 5) ============ -->
+      <!-- NÃO TRIBUTÁVEIS: entram na Rem. Bruta, mas saem do Rendimento Tributável. -->
+      <div class="card">
+        <h2><span class="num">+</span> Verbas indenizatórias</h2>
+        <div id="vind-lista"><!-- campos (máx. 5) --></div>
+        <button type="button" class="cen-btn" id="btn-add-vind" style="width:100%; margin-top:10px;">+ Adicionar verba</button>
+        <div class="hint" style="margin-top:8px;">Não tributáveis: entram na Remuneração Bruta, mas saem do Rendimento Tributável (não pagam IR). Ex.: Aux. Transporte, Etapa, Destacado, Aux. Fardamento, Ajuda de Custo…</div>
+      </div>
+
+      <!-- ============ CARD — DESCONTOS DISCRICIONÁRIOS (até 5) ============ -->
+      <!-- O usuário adiciona campos (máx. 5). Cada um é um valor livre em R$.
+         A SOMA de todos é limitada a 40% da Remuneração Básica (teto dinâmico).
+         No JS: somaDisc = soma dos campos; desconto = min(somaDisc, 40% Rem.Básica).
+         Campos criados/removidos dinamicamente; o cálculo lê todos pela classe .desc-disc-input. -->
+      <div class="card">
+        <h2><span class="num">−</span> Descontos discricionários</h2>
+        <div id="desc-disc-lista"><!-- campos adicionados aqui (máx. 5) --></div>
+        <button type="button" class="cen-btn" id="btn-add-desc" style="width:100%; margin-top: 10px;">+ Adicionar
+          desconto</button>
+        <div class="hint" style="margin-top:8px;">Até 5 campos. A soma é limitada a 40% da Remuneração Básica (máx.
+          <span id="desc-disc-max">R$ 0,00</span>).
+        </div>
+        <div class="hint" id="desc-disc-aviso" style="display:none; color:var(--vermelho); font-weight:600;">Soma acima
+          do limite — considerado o máximo permitido.</div>
+      </div>
+
+      <!-- ============ CARD — PENSÕES (até 5) ============ -->
+      <!-- Desconto. Reduz o líquido E abate da Base de Cálculo do IR.
+           Campos dinâmicos lidos pela classe .pensao-input. -->
+      <div class="card">
+        <h2><span class="num">−</span> Pensões</h2>
+        <div id="pensao-lista"><!-- campos adicionados aqui (máx. 5) --></div>
+        <button type="button" class="cen-btn" id="btn-add-pensao" style="width:100%; margin-top:10px;">+ Adicionar pensão</button>
+        <div class="hint" style="margin-top:8px;">Pensão alimentícia descontada em folha (judicial/acordo). Abate também da base do IR.</div>
+      </div>
+
+      <!-- ============ CARD DE RESULTADO ============ -->
+      <div class="card result-card">
+        <h2> Resultado </h2>
+        <div class="big-nums">
+          <div class="big-num">
+            <div class="lbl">Remuneração Bruta</div>
+            <div class="val" id="r-rem-bruta">R$&nbsp;0,00</div>
+          </div>
+          <div class="big-num">
+            <div class="lbl">Total de descontos</div>
+            <div class="val" id="r-desc" style="color: var(--vermelho);">R$&nbsp;0,00</div>
+          </div>
+          <div class="big-num destaque">
+            <div class="lbl">Remuneração Líquida</div>
+            <div class="val" id="r-liquido">R$&nbsp;0,00</div>
+          </div>
+        </div>
+
+
+      </div>
+
+      <!-- DETALHAMENTO (table.breakdown) — "contracheque": rubricas e valores.
+           Descontos, auxílios e líquido entram aqui nas próximas etapas. -->
+      <div class="card result-card">
+        <h2> Simulação de Contracheque </h2>
+        <table class="breakdown">
+          <tbody>
+            <tr id="comp-toggle" style="cursor:pointer;">
+              <td colspan="2" class="lbl-cell" style="color:var(--acento); font-weight:700;">
+                <span id="comp-arrow">▸</span> Ver composição da Remuneração Básica
+              </td>
+            </tr>
+            <tr class="comp-row" style="display:none;">
+              <td class="lbl-cell">Soldo base</td>
+              <td id="t-soldo">R$&nbsp;0,00</td>
+            </tr>
+            <tr class="comp-row" style="display:none;">
+              <td class="lbl-cell">GRET (<span id="t-gret-p">150</span>%)</td>
+              <td class="pos" id="t-gret">+ R$&nbsp;0,00</td>
+            </tr>
+            <tr class="comp-row" style="display:none;">
+              <td class="lbl-cell">GHP — Habilitação (<span id="t-ghp-p">75</span>%)</td>
+              <td class="pos" id="t-ghp">+ R$&nbsp;0,00</td>
+            </tr>
+            <tr class="comp-row" style="display:none;">
+              <td class="lbl-cell">Indenização Adic. de Inatividade (<span id="t-iai-p">20</span>%)</td>
+              <td class="pos" id="t-iai">+ R$&nbsp;0,00</td>
+            </tr>
+            <tr class="comp-row" style="display:none;">
+              <td class="lbl-cell">Triênio (<span id="t-tri-p">0</span>%)</td>
+              <td class="pos" id="t-trienio">+ R$&nbsp;0,00</td>
+            </tr>
+            <tr class="subtotal">
+              <td>Remuneração Básica</td>
+              <td id="t-rem-basica">R$&nbsp;0,00</td>
+            </tr>
+            <tr>
+              <td class="lbl-cell">(+) Outras vantagens remuneratórias</td>
+              <td class="pos" id="t-vant">+ R$&nbsp;0,00</td>
+            </tr>
+            <tr>
+              <td class="lbl-cell">(+) Verbas indenizatórias <span class="badge-aux">não tributável</span></td>
+              <td class="pos" id="t-vind">+ R$&nbsp;0,00</td>
+            </tr>
+             <tr class="subtotal"><td>Remuneração Bruta</td><td id="t-rem-bruta">R$&nbsp;0,00</td></tr>
+            <tr>
+              <td class="lbl-cell">(−) Contribuição Militar (10,5%) <span class="badge-aux">SPSMERJ · sobre a Rem.
+                  Básica</span></td>
+              <td class="neg" id="t-contrib">− R$&nbsp;0,00</td>
+            </tr>
+            <tr>
+              <td class="lbl-cell">(−) Descontos discricionários <span class="badge-aux">máx. 40% da Rem. Básica</span>
+              </td>
+              <td class="neg" id="t-desc-disc">− R$&nbsp;0,00</td>
+            </tr>
+            <tr>
+              <td class="lbl-cell">(−) Imposto de Renda Retido na Fonte <span class="badge-aux">simulação</span></td>
+              <td class="neg" id="t-irrf">− R$&nbsp;0,00</td>
+            </tr>
+            <tr>
+              <td class="lbl-cell">(−) Pensões <span class="badge-aux">judicial/acordo</span></td>
+              <td class="neg" id="t-pensao">− R$&nbsp;0,00</td>
+            </tr>
+            <tr class="final">
+              <td>Remuneração Líquida</td>
+              <td id="t-liquido">R$&nbsp;0,00</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+  
+    </div>
+        <!-- Rodapé informativo / aviso 
+      <div class="hint" style="font-size: 12px; font-" >
+        Este é um aplicativo de <strong>teste</strong>, sem qualquer vínculo formal com a Polícia Militar
+        do Estado do Rio de Janeiro. Os valores aqui simulados têm caráter meramente informativo e podem
+        não corresponder fielmente à realidade, em razão da complexidade dos fatores envolvidos no cálculo.
+        Em caso de dúvida, considere sempre o seu contracheque oficial.
+      </div>-->
+</body>
+
+</html>
