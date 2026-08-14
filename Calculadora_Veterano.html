@@ -5,13 +5,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="calculadora_pmerj.css">
-  <style>
-    /* Tema avermelhado — diferencia a calculadora de veterano (inativo) da ativa (azul).
-       Sobrescreve a cor de destaque SÓ aqui; o CSS compartilhado fica intacto. */
-    :root {
-      --acento: #b91c1c;            /* vermelho no lugar do azul (era ~#1D4ED8) */
-    }
-  </style>
   <title>Simulador de Remuneração — Veterano (Inativo) </title>
   <script src="Calculadora_Veterano_v6.js" defer></script>
 </head>
@@ -26,7 +19,6 @@
         <p>Versão para inativos — Indenização de Adic. de Inatividade no lugar da GRAM</p>
       </div>
     </header>
-
 
     <!-- ====================== CHAVES DE REAJUSTE ====================== -->
     <!-- Reajustes compostos sobre o soldo (no JS). Afetam todas as rubricas,
@@ -164,7 +156,7 @@
 
 
       <details class="card">
-        <summary style="cursor:pointer; color:var(--acento); font-weight:800; font-size:13px;  text-decoration: underline  1px;">Não sabe seus triênios?
+        <summary style="cursor:pointer; color:var(--primary-strong); font-weight:800; font-size:13px;  text-decoration: underline  1px;">Não sabe seus triênios?
           Calcule pela data de praça</summary>
         <div style="margin-top:18px;">
           <div class="field">
@@ -217,7 +209,7 @@
         <div class="hint" style="margin-top:8px;">Até 5 campos. A soma é limitada a 40% da Remuneração Básica (máx.
           <span id="desc-disc-max">R$ 0,00</span>).
         </div>
-        <div class="hint" id="desc-disc-aviso" style="display:none; color:var(--vermelho); font-weight:600;">Soma acima
+        <div class="hint" id="desc-disc-aviso" style="display:none; color:var(--danger); font-weight:600;">Soma acima
           do limite — considerado o máximo permitido.</div>
       </div>
 
@@ -241,7 +233,7 @@
           </div>
           <div class="big-num">
             <div class="lbl">Total de descontos</div>
-            <div class="val" id="r-desc" style="color: var(--vermelho);">R$&nbsp;0,00</div>
+            <div class="val" id="r-desc" style="color: var(--danger);">R$&nbsp;0,00</div>
           </div>
           <div class="big-num destaque">
             <div class="lbl">Remuneração Líquida</div>
@@ -259,7 +251,7 @@
         <table class="breakdown">
           <tbody>
             <tr id="comp-toggle" style="cursor:pointer;">
-              <td colspan="2" class="lbl-cell" style="color:var(--acento); font-weight:700;">
+              <td colspan="2" class="lbl-cell" style="color:var(--primary-strong); font-weight:700;">
                 <span id="comp-arrow">▸</span> Ver composição da Remuneração Básica
               </td>
             </tr>
