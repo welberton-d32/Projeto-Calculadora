@@ -43,7 +43,7 @@
     background: linear-gradient(135deg, var(--primary-strong) 0%, var(--primary) 100%);
     color: #fff;
     border-radius: 14px;
-    padding: 28px 32px;
+    padding: 24px 28px 20px;
     margin-bottom: 24px;
     box-shadow: 0 4px 16px rgba(11, 110, 201, 0.12);
     position: relative;
@@ -63,26 +63,18 @@
     border-radius: 50%;
   }
   .brasao {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.4);
-    background: rgba(255,255,255,0.08);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 12px;
+    display: none;
+  }
+  .header-text {
     position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
   }
-  .brasao::before {
-    content: "PM";
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    color: rgba(255,255,255,0.9);
-  }
-  header h1 { font-size: clamp(1.6rem, 2vw, 2.1rem); font-weight: 700; letter-spacing: -0.3px; margin-bottom: 2px; line-height: 1.2; }
-  header p { font-size: 13px; opacity: 0.88; }
+  header h1 { font-size: clamp(1.55rem, 2vw, 2.1rem); font-weight: 700; letter-spacing: -0.3px; margin: 0; line-height: 1.2; }
+  header p { font-size: 13px; opacity: 0.88; margin: 0; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .field,
   .card,
