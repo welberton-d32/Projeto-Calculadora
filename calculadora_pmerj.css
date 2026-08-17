@@ -11,6 +11,10 @@
     --success: #0d7a66;
     --danger: #b42318;
     --vermelho: #b42318;
+    --acento: var(--primary);
+    --borda: var(--border);
+    --texto: var(--text);
+    --fundo: var(--page-bg);
     --shadow-soft: 0 2px 8px rgba(15, 23, 42, 0.04);
     --shadow-active: 0 6px 16px rgba(30, 136, 229, 0.1);
     --radius-card: 11px;
@@ -31,6 +35,10 @@
     background: var(--page-bg);
   }
   .wrap { max-width: 940px; margin: 0 auto; }
+  .header-text {
+    position: relative;
+    z-index: 1;
+  }
   header {
     background: linear-gradient(135deg, var(--primary-strong) 0%, var(--primary) 100%);
     color: #fff;
@@ -54,10 +62,33 @@
     background: rgba(255,255,255,0.06);
     border-radius: 50%;
   }
-  .brasao { font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; opacity: 0.8; margin-bottom: 10px; font-weight: 700; }
-  header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 2px; line-height: 1.2; }
+  .brasao {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.08);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .brasao::before {
+    content: "PM";
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.9);
+  }
+  header h1 { font-size: clamp(1.6rem, 2vw, 2.1rem); font-weight: 700; letter-spacing: -0.3px; margin-bottom: 2px; line-height: 1.2; }
   header p { font-size: 13px; opacity: 0.88; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .field,
+  .card,
+  details.card {
+    min-width: 0;
+  }
   @media (max-width: 720px) {
     body { padding: 20px 12px 40px; }
     .wrap { max-width: 100%; }
@@ -65,6 +96,30 @@
     header { padding: 24px 20px; border-radius: 12px; margin-bottom: 24px; }
     .card { padding: 20px 18px; }
     .big-nums { grid-template-columns: 1fr; gap: 12px; }
+    .field label,
+    .field .hint,
+    .card h2,
+    select,
+    input,
+    button,
+    summary,
+    .money-row input {
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+  }
+  @media (max-width: 480px) {
+    body { padding: 16px 10px 32px; }
+    .wrap { max-width: 100%; }
+    header { padding: 22px 18px; }
+    .card { padding: 18px 14px; }
+    .result-card { padding: 20px 16px; }
+    .big-num .val { font-size: 20px; }
+    .grid { gap: 12px; }
+    .field { margin-bottom: 16px; }
+    .slider-row { gap: 8px; }
+    .slider-val { min-width: 42px; font-size: 13px; }
+    .cen-btn { padding: 11px 8px; }
   }
   .card {
     background: var(--surface);
@@ -146,7 +201,7 @@
     padding: 5px 0;
     letter-spacing: -0.2px;
   }
-  input[type=number], select {
+  input[type=number], select, input[type=date] {
     width: 100%;
     padding: 10px 12px;
     border: 1px solid var(--border);
@@ -159,10 +214,19 @@
     box-shadow: inset 0 0.5px 1px rgba(15, 23, 42, 0.01);
     line-height: 1.5;
   }
-  input[type=number]:focus, select:focus {
+  input[type=number]:focus, select:focus, input[type=date]:focus {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 2.5px rgba(30, 136, 229, 0.06);
+  }
+  input, select, button, summary {
+    font: inherit;
+  }
+  summary {
+    list-style: none;
+  }
+  summary::-webkit-details-marker {
+    display: none;
   }
   .result-card {
     grid-column: 1 / -1;
