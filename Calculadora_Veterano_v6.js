@@ -29,40 +29,7 @@
 //   document.body.appendChild(sair);
 // });
 
-// ===== Abas de navegação (Ativos <-> Veteranos) =====
-document.addEventListener('DOMContentLoaded', function () {
-  const token = new URLSearchParams(location.search).get('acesso');
-  const q = token ? ('?acesso=' + encodeURIComponent(token)) : '';
-  const atual = (location.pathname.split('/').pop() || '').toLowerCase();
-
-  function aba(rotulo, arquivo) {
-    const a = document.createElement('a');
-    a.textContent = rotulo;
-    a.href = arquivo + q;
-    const ativa = atual === arquivo.toLowerCase();
-    a.style.cssText = 'text-decoration:none; padding:10px 6px; font-size:15px; ' +
-      'border-bottom:3px solid transparent; margin-bottom:-1px; ' +
-      'transition:color .15s ease, border-color .15s ease; ' +
-      (ativa ? 'color:var(--acento); border-bottom-color:var(--acento); font-weight:700;'
-             : 'color:#64748b; font-weight:600;');
-    if (!ativa) {
-      a.addEventListener('mouseenter', function () { a.style.color = 'var(--acento)'; });
-      a.addEventListener('mouseleave', function () { a.style.color = '#64748b'; });
-    }
-    return a;
-  }
-
-  const nav = document.createElement('nav');
-  nav.style.cssText = 'display:flex; gap:28px; justify-content:center; flex-wrap:wrap; ' +
-    'max-width:1040px; margin:0 auto 18px; border-bottom:1px solid var(--borda, #e5e9f0);';
-  nav.appendChild(aba('Ativos', 'index.html'));
-  nav.appendChild(aba('Veteranos', 'Calculadora_Veterano.html'));
-
-  const wrap = document.querySelector('.wrap');
-  const header = wrap ? wrap.querySelector('header') : null;
-  if (wrap && header) wrap.insertBefore(nav, header);
-  else if (wrap) wrap.insertBefore(nav, wrap.firstChild);
-});
+/* BLOCO DE NAVEGAÇÃO REMOVIDO PARA INTEGRAÇÃO COM O SITE PRINCIPAL */
 
 // ===== Relatório em PDF (biblioteca jsPDF, carregada sob demanda) =====
 
