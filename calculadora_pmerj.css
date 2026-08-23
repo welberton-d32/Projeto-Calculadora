@@ -8,6 +8,9 @@
     --border: #e4ebf2;
         --primary: #0095FF;
     --primary-strong: #0077CC;
+    /* Azul-marinho escuro do título/menu do site — usado nos cabeçalhos das páginas */
+    --heading: #0b2e57;
+    --heading-veterano: #7a1420;
     --success: #0d7a66;
     --danger: #b42318;
     --vermelho: #b42318;
@@ -40,28 +43,23 @@
     z-index: 1;
   }
   header {
-    background: linear-gradient(135deg, var(--primary-strong) 0%, var(--primary) 100%);
-    color: #fff;
-    border-radius: 14px;
-    padding: 24px 28px 20px;
+    background: transparent;
+    color: var(--heading);
+    border-radius: 0;
+    padding: 0 0 18px;
     margin-bottom: 24px;
-    box-shadow: 0 4px 16px rgba(11, 110, 201, 0.12);
+    box-shadow: none;
     position: relative;
-    overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: none;
+    border-bottom: 1px solid var(--border);
   }
-  .veterano{
-    background: linear-gradient(135deg, var(--primary-strong) 0%, var(--primary) 100%);
+  /* Página de veteranos: mesmo padrão, com um leve tom vinho no título/risco
+     para diferenciar de "ativos" (sem recriar o banner grande) */
+  .veterano {
+    background: transparent;
   }
-  header::after {
-    content: "";
-    position: absolute;
-    inset: auto -65px -95px auto;
-    width: 240px;
-    height: 240px;
-    background: rgba(255,255,255,0.06);
-    border-radius: 50%;
-  }
+  .veterano h1 { color: var(--heading-veterano); }
+  .veterano .header-text::after { background: var(--heading-veterano); }
   .brasao {
     display: none;
   }
@@ -73,8 +71,18 @@
     align-items: flex-start;
     gap: 4px;
   }
-  header h1 { font-size: clamp(1.55rem, 2vw, 2.1rem); font-weight: 700; letter-spacing: -0.3px; margin: 0; line-height: 1.2; }
-  header p { font-size: 13px; opacity: 0.88; margin: 0; }
+  .header-text::after {
+    content: "";
+    display: block;
+    width: 56px;
+    height: 3px;
+    background: var(--primary);
+    border-radius: 2px;
+    margin-top: 8px;
+    order: 3;
+  }
+  header h1 { font-size: clamp(1.55rem, 2vw, 2.1rem); font-weight: 800; letter-spacing: -0.3px; margin: 0; line-height: 1.2; color: var(--heading); }
+  header p { font-size: 13px; color: var(--text-soft); opacity: 1; margin: 0; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .field,
   .card,
@@ -85,7 +93,7 @@
     body { padding: 20px 12px 40px; }
     .wrap { max-width: 100%; }
     .grid { grid-template-columns: 1fr; gap: 14px; }
-    header { padding: 24px 20px; border-radius: 12px; margin-bottom: 24px; }
+    header { padding: 0 0 16px; margin-bottom: 20px; }
     .card { padding: 20px 18px; }
     .big-nums { grid-template-columns: 1fr; gap: 12px; }
     .field label,
@@ -103,7 +111,7 @@
   @media (max-width: 480px) {
     body { padding: 16px 10px 32px; }
     .wrap { max-width: 100%; }
-    header { padding: 22px 18px; }
+    header { padding: 0 0 14px; }
     .card { padding: 18px 14px; }
     .result-card { padding: 20px 16px; }
     .big-num .val { font-size: 20px; }

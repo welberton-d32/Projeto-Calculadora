@@ -6,6 +6,9 @@
            (3) cálculo principal (Remuneração Básica/Bruta e descontos)
    =================================================================== */
 
+(function () {
+  'use strict';
+
 // ===== (1) Guarda de sessão (gate de login) — via URL =====
 // A permissão vem na URL (?acesso=ok), então funciona no duplo clique (file://),
 // sem depender de sessionStorage.
@@ -37,6 +40,11 @@ function carregarJsPDF(callback) {
   if (window.jspdf && window.jspdf.jsPDF) { callback(); return; }
   const s = document.createElement('script');
   s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+  // SRI: garante que o navegador só executa o script se o conteúdo bater com este hash
+  // (protege contra o CDN externo servir um arquivo adulterado).
+  s.integrity = 'sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==';
+  s.crossOrigin = 'anonymous';
+  s.referrerPolicy = 'no-referrer';
   s.onload = callback;
   s.onerror = function () {
     alert('Não foi possível carregar a biblioteca de PDF.\nVerifique a conexão com a internet e tente de novo.');
@@ -57,6 +65,67 @@ function selRel(id) {
   return el.selectedOptions[0].textContent.trim();
 }
 
+// Mostra o PDF num modal (iframe) antes de baixar — evita popup bloqueado
+// (abrir aba nova falharia no 1º clique, já que o jsPDF ainda está carregando
+// do CDN nesse momento e o navegador perde o "gesto do usuário" do clique).
+function mostrarPreviewPDF(doc, nomeArquivo) {
+  const antigo = document.getElementById('pdf-preview-modal');
+  if (antigo) antigo.remove();
+
+  const blobUrl = doc.output('bloburl');
+
+  const overlay = document.createElement('div');
+  overlay.id = 'pdf-preview-modal';
+  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:9999; display:flex; align-items:center; justify-content:center; padding:24px;';
+
+  const box = document.createElement('div');
+  box.style.cssText = 'background:var(--surface,#fff); border-radius:var(--radius-card,11px); width:min(900px,100%); height:min(85vh,900px); display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.3);';
+
+  const topo = document.createElement('div');
+  topo.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--border,#e4ebf2); flex-shrink:0;';
+  topo.innerHTML = '<strong style="font-size:14px;">Pré-visualização do relatório</strong>';
+
+  const botoes = document.createElement('div');
+  botoes.style.cssText = 'display:flex; gap:8px;';
+
+  const btnBaixar = document.createElement('button');
+  btnBaixar.type = 'button';
+  btnBaixar.className = 'cen-btn';
+  btnBaixar.style.cssText = 'width:auto; padding:8px 16px;';
+  btnBaixar.textContent = 'Baixar / Imprimir';
+  btnBaixar.addEventListener('click', function () { doc.save(nomeArquivo); });
+
+  const btnFechar = document.createElement('button');
+  btnFechar.type = 'button';
+  btnFechar.className = 'cen-btn';
+  btnFechar.style.cssText = 'width:auto; padding:8px 16px;';
+  btnFechar.textContent = 'Fechar';
+  btnFechar.addEventListener('click', fechar);
+
+  botoes.appendChild(btnBaixar);
+  botoes.appendChild(btnFechar);
+  topo.appendChild(botoes);
+
+  const iframe = document.createElement('iframe');
+  iframe.src = blobUrl;
+  iframe.title = 'Pré-visualização do relatório em PDF';
+  iframe.style.cssText = 'flex:1; border:none; width:100%;';
+
+  box.appendChild(topo);
+  box.appendChild(iframe);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  function fechar() {
+    overlay.remove();
+    URL.revokeObjectURL(blobUrl);
+    document.removeEventListener('keydown', onEsc);
+  }
+  function onEsc(e) { if (e.key === 'Escape') fechar(); }
+  document.addEventListener('keydown', onEsc);
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) fechar(); });
+}
+
 // Monta e baixa o PDF com os valores atuais da simulação.
 function gerarRelatorioPDF() {
   carregarJsPDF(function () {
@@ -71,7 +140,16 @@ function gerarRelatorioPDF() {
     doc.text('Simulação de Remuneração — relatório', M, y); y += 16;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(120);
     doc.text('Gerado em ' + new Date().toLocaleString('pt-BR'), M, y);
-    doc.setTextColor(0); y += 22;
+    doc.setTextColor(0); y += 18;
+
+    // Aviso de que o documento não tem valor legal — bem visível, logo abaixo do título
+    doc.setDrawColor(190); doc.setFillColor(244, 248, 252);
+    doc.roundedRect(M, y, DIR - M, 24, 5, 5, 'FD');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(50, 65, 90);
+    doc.text('SIMULAÇÃO SEM VALOR LEGAL — não substitui o contracheque oficial da corporação.', M + 10, y + 15);
+    doc.setTextColor(0);
+    y += 24 + 16;
+
     doc.setDrawColor(200); doc.line(M, y, DIR, y); y += 24;
 
     // helper de linha "rótulo .......... valor"
@@ -212,12 +290,74 @@ function gerarRelatorioPDF() {
     // ---- rodapé ----
     y += 28;
     doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(120);
-    doc.text('Estimativa para conferência. Não substitui o contracheque oficial.', M, y);
+    doc.text('Documento sem valor legal — simulação estimativa. Não substitui o contracheque oficial da corporação.', M, y);
     doc.setTextColor(0);
 
-    doc.save('relatorio-simulacao-pm.pdf');
+    mostrarPreviewPDF(doc, 'relatorio-simulacao-pm.pdf');
   });
 }
+
+// ===== Restrição de patentes pelo posto do usuário logado =====
+// O site principal (autenticado) deve informar a patente ATUAL do usuário por
+// um destes meios — o primeiro encontrado é usado (definir/injetar ANTES deste
+// script rodar, ex.: no template do servidor):
+//   1) window.PMERJ_USER_POSTO = "Cap PM";
+//   2) <body data-user-posto="Cap PM">  (ou "Cap%20PM" via querystring, ver 3)
+//   3) URL: ...?posto=Cap%20PM
+// O valor deve ser igual ao TEXTO de uma das opções do campo "Posto / Graduações"
+// (ex.: "Cap PM", "1º Sgt PM"). Se nada for informado, ou o valor não bater com
+// nenhuma opção, o campo mantém o comportamento atual (lista completa, sem corte).
+// Precisa rodar ANTES dos demais listeners que dependem de #posto (Dif-Posto/Grad,
+// GEE, Grat. de Comando e o cálculo principal) — por isso fica logo no topo do arquivo.
+document.addEventListener('DOMContentLoaded', function () {
+  const posto = document.getElementById('posto');
+  if (!posto) return;
+
+  const MAX_PATENTES_ACIMA = 3; // quantas patentes acima da do usuário ficam visíveis/selecionáveis
+
+  // Aceita tanto só a patente ("2º Sgt PM") quanto o formato usado na área
+  // restrita do site ("2º SGT PM - FULANO DE TAL") — fica só com a parte
+  // antes do primeiro " - ".
+  function normalizarPosto(txt) {
+    if (!txt) return '';
+    return txt.split(' - ')[0].trim();
+  }
+  function obterPostoUsuario() {
+    if (typeof window.PMERJ_USER_POSTO === 'string' && window.PMERJ_USER_POSTO.trim()) {
+      return normalizarPosto(window.PMERJ_USER_POSTO);
+    }
+    if (document.body.dataset.userPosto && document.body.dataset.userPosto.trim()) {
+      return normalizarPosto(document.body.dataset.userPosto);
+    }
+    const porUrl = new URLSearchParams(window.location.search).get('posto');
+    if (porUrl && porUrl.trim()) return normalizarPosto(porUrl);
+    return null;
+  }
+
+  const postoUsuario = obterPostoUsuario();
+  if (!postoUsuario) return; // sem integração informada: comportamento padrão (lista completa)
+
+  let idxUsuario = -1;
+  for (let i = 0; i < posto.options.length; i++) {
+    if (posto.options[i].textContent.trim().toLowerCase() === postoUsuario.toLowerCase()) {
+      idxUsuario = i;
+      break;
+    }
+  }
+  if (idxUsuario < 0) {
+    console.warn('Simulador: patente do usuário ("' + postoUsuario + '") não encontrada na lista de postos/graduações. Exibindo lista completa.');
+    return;
+  }
+
+  const idxMin = Math.max(0, idxUsuario - MAX_PATENTES_ACIMA);
+  // remove, de trás para frente, tudo que ficar fora da faixa [idxMin, idxUsuario]
+  // (isso também remove a opção placeholder "0 — Insira o Grau Hierárquico Desejado")
+  for (let i = posto.options.length - 1; i >= 0; i--) {
+    if (i < idxMin || i > idxUsuario) posto.remove(i);
+  }
+  posto.selectedIndex = posto.options.length - 1; // a própria patente do usuário, já pré-selecionada
+  posto.disabled = posto.options.length <= 1; // só a própria patente disponível (ex.: Coronel) -> não há o que escolher
+});
 
 // Botões "Gerar relatório (PDF)" e "Limpar" — injetados no card do contracheque.
 document.addEventListener('DOMContentLoaded', function () {
@@ -389,7 +529,10 @@ document.addEventListener('DOMContentLoaded', function () {
     // Ativos: Coronel é o último posto e não recebe Dif — esconde a seção inteira.
     box.style.display = ehCel ? 'none' : '';
     if (ehCel) { chk.checked = false; wrap.style.display = 'none'; }
-    const anterior = selDif.value;
+    // Guarda pelo TEXTO (não pelo value): há postos com o mesmo soldo
+    // (ex.: "Asp Of PM" e "Sub Ten PM"), então comparar por value poderia
+    // restaurar a seleção errada.
+    const anterior = selDif.options[selDif.selectedIndex] ? selDif.options[selDif.selectedIndex].textContent : '';
     selDif.innerHTML = '';
     for (let i = 0; i < idx; i++) {                 // índices menores = postos acima
       const o = posto.options[i];
@@ -403,7 +546,7 @@ document.addEventListener('DOMContentLoaded', function () {
     notaCel.style.display = 'none';
     if (anterior) {
       for (let i = 0; i < selDif.options.length; i++) {
-        if (selDif.options[i].value === anterior) { selDif.selectedIndex = i; break; }
+        if (selDif.options[i].textContent === anterior) { selDif.selectedIndex = i; break; }
       }
     }
   }
@@ -469,7 +612,6 @@ document.addEventListener('DOMContentLoaded', function () {
   const elDescDiscAviso = document.getElementById('desc-disc-aviso');
   const chkReaj  = document.getElementById('reajuste');
   const chkReaj2 = document.getElementById('reajuste2');
-  const chkIsencaoGram = document.getElementById('isencao-gram');
 
   if (!selPosto || !selHab || !selTri) {
     console.error('Cálculo: elemento não encontrado. Confira os id posto, habilitacao, trienio.');
@@ -528,7 +670,8 @@ document.addEventListener('DOMContentLoaded', function () {
   function confirmarCampo(btn) {
     const item = btn.closest('.field');
     const inp = item ? item.querySelector('input[type=number]') : null;
-    if (inp) inp.dataset.commit = inp.value || '0';
+    // valores negativos n\u00e3o fazem sentido nesses campos (vantagem, verba, desconto, pens\u00e3o) \u2014 trava em 0
+    if (inp) inp.dataset.commit = String(Math.max(0, parseFloat(inp.value) || 0));
     btn.style.background = ''; btn.style.color = ''; btn.textContent = '\u2713';
     calcular();
   }
@@ -712,8 +855,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const baseTeto = remBasica + totalVant;   // sujeito ao teto (fora: indenizatórias, Grat Comando, Abono)
     const abateTeto = Math.max(0, baseTeto - TETO_CONST);
 
-    // dependentes (IR)
-    const dep = selDep ? (parseInt(selDep.value, 10) || 0) : 0;
+    // dependentes (IR) — nunca negativo
+    const dep = selDep ? Math.max(0, parseInt(selDep.value, 10) || 0) : 0;
 
     // descontos
     const fuspom     = soldo * fusPct / 100;               // FUSPOM (somente sobre o soldo)
@@ -747,6 +890,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const parLegal = contribMil + dedDep;                       // Contrib. Militar + dependentes
     const parUsado = (parLegal < DESC_SIMPL) ? DESC_SIMPL : parLegal; // desconto simplificado se for maior
     // isenção da GRAM no IR: se marcada, abate a GRAM da base de cálculo (não mexe no Rend. Tributável)
+    const chkIsencaoGram = document.getElementById('isencao-gram');
     const abateGram = (chkIsencaoGram && chkIsencaoGram.checked) ? gram : 0;
     const baseIR   = Math.max(0, remBruta - totalVind - parUsado - fuspom - pensao - abateGram - abateTeto);
     const irBruto  = irTabela(baseIR);
@@ -885,7 +1029,6 @@ document.addEventListener('DOMContentLoaded', function () {
     calcular();
   });
   if (chkReaj2) chkReaj2.addEventListener('change', calcular);
-  if (chkIsencaoGram) chkIsencaoGram.addEventListener('change', calcular);
 
   // esconde rubricas zeradas; comp-rows respeitam também o estado do "Ver detalhamento"
   let compAberta = false;
@@ -973,7 +1116,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (e.target && e.target.classList.contains('campo-ok')) {
       const item = e.target.closest('.field');
       const inp = item ? item.querySelector('input[type=number]') : null;
-      if (inp) inp.dataset.commit = inp.value || '0';
+      if (inp) inp.dataset.commit = String(Math.max(0, parseFloat(inp.value) || 0));
       e.target.style.background = ''; e.target.style.color = ''; e.target.textContent = '\u2713';
       if (posto) posto.dispatchEvent(new Event('change'));
     }
@@ -996,3 +1139,22 @@ document.addEventListener('DOMContentLoaded', function () {
   const chk = document.getElementById('abono-chk');
   if (chk && posto) chk.addEventListener('change', function () { posto.dispatchEvent(new Event('change')); });
 });
+
+// ===== Isenção de IRPF sobre a GRAM (decisão judicial/isenção específica) =====
+document.addEventListener('DOMContentLoaded', function () {
+  const table = document.querySelector('table.breakdown');
+  if (!table) return;
+  const box = document.createElement('div');
+  box.style.cssText = 'margin-top:16px; padding-top:14px; border-top:1px solid #e7eef6;';
+  box.innerHTML =
+    '<label for="isencao-gram" style="display:flex;align-items:center;gap:10px;font-weight:700;cursor:pointer;font-size:13px;">' +
+      '<input type="checkbox" id="isencao-gram"> Isenção de IRPF sobre a GRAM' +
+    '</label>' +
+    '<div class="hint" style="margin-top:6px; font-size:12px; font-style: italic">Se marcado, abate o valor da GRAM da base de cálculo do IRPF (decisão judicial/isenção específica).</div>';
+  table.parentNode.appendChild(box);
+  const chk = document.getElementById('isencao-gram');
+  const posto = document.getElementById('posto');
+  if (chk && posto) chk.addEventListener('change', function () { posto.dispatchEvent(new Event('change')); });
+});
+
+})();
