@@ -571,7 +571,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const box = document.createElement('div');
   box.id = 'gee-wrap';
-  box.style.cssText = 'display:none;margin-top:12px;padding-top:12px;border-top:1px solid #e7eef6;';
+  box.style.cssText = 'display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--borda);';
   box.innerHTML =
     '<label for="gee-chk" style="display:flex;align-items:center;gap:10px;font-weight:700;cursor:pointer;margin:0;">' +
       '<input type="checkbox" id="gee-chk"> Gratificação de Encargos Especiais — GEE (E-12/790/1994)' +
@@ -683,7 +683,7 @@ document.addEventListener('DOMContentLoaded', function () {
     item.className = 'field desc-disc-item';
     item.style.cssText = 'display:flex; gap:8px; align-items:center;';
     item.innerHTML =
-      '<input type="text" class="desc-disc-nome" placeholder="Nome do desconto" style="flex:1; padding:10px 12px; border:1.5px solid var(--borda); border-radius:10px; font-size:14px; font-family:inherit; color:var(--texto); background:#fff;">' +
+      '<input type="text" class="desc-disc-nome" placeholder="Nome do desconto" style="flex:1; padding:10px 12px; border:1px solid var(--borda); border-radius:4px; font-size:14px; font-family:inherit; color:var(--texto); background:#fff;">' +
       '<div class="money-row" style="flex:0 0 160px;">' +
         '<span class="money-prefix">R$</span>' +
         '<input type="number" class="desc-disc-input" data-commit="0" value="0" min="0" step="0.01" inputmode="decimal" style="color: var(--vermelho);">' +
@@ -737,7 +737,7 @@ document.addEventListener('DOMContentLoaded', function () {
     item.style.cssText = 'display:flex; gap:8px; align-items:center;';
     item.innerHTML =
       '<input type="text" class="vant-nome" placeholder="Nome do vencimento" ' +
-        'style="flex:1; padding:10px 12px; border:1.5px solid var(--borda); border-radius:10px; ' +
+        'style="flex:1; padding:10px 12px; border:1px solid var(--borda); border-radius:4px; ' +
         'font-size:14px; font-family:inherit; color:var(--texto); background:#fff;">' +
       '<div class="money-row" style="flex:0 0 160px;">' +
         '<span class="money-prefix">R$</span>' +
@@ -766,7 +766,7 @@ document.addEventListener('DOMContentLoaded', function () {
     item.style.cssText = 'display:flex; gap:8px; align-items:center;';
     item.innerHTML =
       '<input type="text" class="vind-nome" placeholder="Ex.: Aux. Transporte" ' +
-        'style="flex:1; padding:10px 12px; border:1.5px solid var(--borda); border-radius:10px; ' +
+        'style="flex:1; padding:10px 12px; border:1px solid var(--borda); border-radius:4px; ' +
         'font-size:14px; font-family:inherit; color:var(--texto); background:#fff;">' +
       '<div class="money-row" style="flex:0 0 160px;">' +
         '<span class="money-prefix">R$</span>' +
@@ -1129,7 +1129,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (!table) return;
   const posto = document.getElementById('posto');
   const box = document.createElement('div');
-  box.style.cssText = 'margin-top:16px; padding-top:14px; border-top:1px solid #e7eef6;';
+  box.style.cssText = 'margin-top:16px; padding-top:14px; border-top:1px solid var(--borda);';
   box.innerHTML =
     '<label for="abono-chk" style="display:flex;align-items:center;gap:10px;font-weight:700;cursor:pointer;font-size:13px;">' +
       '<input type="checkbox" id="abono-chk"> Possui Abono de Permanência' +
@@ -1145,7 +1145,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const table = document.querySelector('table.breakdown');
   if (!table) return;
   const box = document.createElement('div');
-  box.style.cssText = 'margin-top:16px; padding-top:14px; border-top:1px solid #e7eef6;';
+  box.style.cssText = 'margin-top:16px; padding-top:14px; border-top:1px solid var(--borda);';
   box.innerHTML =
     '<label for="isencao-gram" style="display:flex;align-items:center;gap:10px;font-weight:700;cursor:pointer;font-size:13px;">' +
       '<input type="checkbox" id="isencao-gram"> Isenção de IRPF sobre a GRAM' +
