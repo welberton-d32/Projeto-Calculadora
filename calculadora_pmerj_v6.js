@@ -126,6 +126,15 @@ function mostrarPreviewPDF(doc, nomeArquivo) {
   overlay.addEventListener('click', function (e) { if (e.target === overlay) fechar(); });
 }
 
+// Verbas fixas indenizatórias (atalhos)
+function valorAuxTransporte() { return 350.00; }
+// Etapa (Destacado): R$ 433,80 para Cabos e Soldados; R$ 465,60 para os demais
+function valorEtapaDestacado() {
+  const posto = document.getElementById('posto');
+  const p = (posto && posto.options[posto.selectedIndex]) ? posto.options[posto.selectedIndex].textContent.trim() : '';
+  return (p === 'Cb PM' || p === 'Sd PM') ? 433.80 : 465.60;
+}
+
 // Monta e baixa o PDF com os valores atuais da simulação.
 function gerarRelatorioPDF() {
   carregarJsPDF(function () {
@@ -244,7 +253,12 @@ function gerarRelatorioPDF() {
     linha('Remuneração Básica', txtRel('t-rem-basica'), { bold: true });
     y += 6;
     grupo(coletar('.vant-valor', '.vant-nome', 'Vantagem'), 'Outras Vantagens', '+', 't-vant');
-    grupo(coletar('.vind-valor', '.vind-nome', 'Verba'), 'Verbas Indenizatórias', '+', 't-vind');
+    const itensVind = coletar('.vind-valor', '.vind-nome', 'Verba');
+    const _aT = document.getElementById('vind-aux-transporte');
+    if (_aT && _aT.checked) itensVind.push({ v: valorAuxTransporte(), nome: 'Auxílio Transporte' });
+    const _eT = document.getElementById('vind-etapa');
+    if (_eT && _eT.checked) itensVind.push({ v: valorEtapaDestacado(), nome: 'Etapa (Destacado)' });
+    grupo(itensVind, 'Verbas Indenizatórias', '+', 't-vind');
     const gc = coletarGrat();
     if (gc.length > 0) {
       y += 4; doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text('Gratificações de Comando', M, y); y += 15; doc.setFont('helvetica', 'normal');
@@ -861,6 +875,12 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     }
 
+    // atalhos de verbas fixas (indenizatórias)
+    const chkAuxT = document.getElementById('vind-aux-transporte');
+    const chkEtapa = document.getElementById('vind-etapa');
+    if (chkAuxT && chkAuxT.checked) totalVind += valorAuxTransporte();
+    if (chkEtapa && chkEtapa.checked) totalVind += valorEtapaDestacado();
+
     // Gratificações de Comando PMERJ (fora da Rem. Básica, da Contribuição e do teto)
     let totalGratCmd = 0;
     document.querySelectorAll('.gratcmd-valor').forEach(function (inp) {
@@ -1271,6 +1291,31 @@ document.addEventListener('DOMContentLoaded', function () {
     inpPct.dataset.commit = String(v);
     btnOk.style.background = ''; btnOk.style.color = ''; btnOk.textContent = '✓';
     recalcular();
+  });
+});
+
+// ===== Atalhos de verbas indenizatórias fixas (Aux. Transporte, Etapa Destacado) =====
+document.addEventListener('DOMContentLoaded', function () {
+  const lista = document.getElementById('vind-lista');
+  const card = lista ? lista.closest('.card') : null;
+  if (!card || document.getElementById('vind-aux-transporte')) return;
+  const posto = document.getElementById('posto');
+  const box = document.createElement('div');
+  box.style.cssText = 'margin-top:10px; padding-top:12px; border-top:1px dashed var(--borda); display:flex; flex-direction:column; gap:8px;';
+  box.innerHTML =
+    '<div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-soft);">Atalhos \u2014 verbas fixas</div>' +
+    '<label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer; font-size:13px; margin:0;"><input type="checkbox" id="vind-aux-transporte"> Auxílio Transporte (R$ 350,00)</label>' +
+    '<label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer; font-size:13px; margin:0;"><input type="checkbox" id="vind-etapa"> <span id="vind-etapa-lbl">Etapa (Destacado)</span></label>';
+  card.appendChild(box);
+  function atualizarEtapaLbl() {
+    const lbl = document.getElementById('vind-etapa-lbl');
+    if (lbl) lbl.textContent = 'Etapa (Destacado) \u2014 R$ ' + valorEtapaDestacado().toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  atualizarEtapaLbl();
+  if (posto) posto.addEventListener('change', atualizarEtapaLbl);
+  ['vind-aux-transporte', 'vind-etapa'].forEach(function (id) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', function () { if (posto) posto.dispatchEvent(new Event('change')); });
   });
 });
 
