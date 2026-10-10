@@ -152,7 +152,7 @@
         <div style="margin-top:18px;">
           <div class="field">
             <label for="data-praca"> Data de praça: </label>
-            <input type="date" id="data-praca"> <span class="hint" style="flex:1;">mês / dia / ano</span>
+            <input type="date" id="data-praca"> <span class="hint" style="flex:1;">dia / mês / ano</span>
             <div class="hint"> Data de Ingresso na corporação.</div>
           </div>
 
@@ -199,12 +199,12 @@
          No JS: somaDisc = soma dos campos; desconto = min(somaDisc, 40% Rem.Básica).
          Campos criados/removidos dinamicamente; o cálculo lê todos pela classe .desc-disc-input. -->
       <div class="card">
-        <h2><span class="num"></span> Descontos discricionários</h2>
+        <h2><span class="num">−</span> Descontos discricionários</h2>
         <div id="desc-disc-lista"><!-- campos adicionados aqui (máx. 5) --></div>
         <button type="button" class="cen-btn" id="btn-add-desc" style="width:100%; margin-top: 10px;">+ Adicionar
           desconto</button>
-        <div class="hint hint-exp"> Empréstimos, Consignados, Doações, Entidades de Classe etc... <span
-            id="desc-disc-max">R$ 0,00</span>.
+        <div class="hint hint-exp"> Empréstimos, Consignados, Doações, Entidades de Classe etc... Soma limitada a 40% da
+          Remuneração Básica (máx. <span id="desc-disc-max">R$ 0,00</span>).
         </div>
         <div class="hint" id="desc-disc-aviso" style="display:none; color:var(--vermelho); font-weight:600;">Soma
           acima
@@ -252,7 +252,7 @@
           <tbody>
             <tr id="comp-toggle" style="cursor:pointer;">
               <td colspan="2" class="lbl-cell" style="color:var(--acento); font-weight:700;">
-                <span id="comp-arrow">▸</span> Ver detalhemento por rubrica
+                <span id="comp-arrow">▸</span> Ver detalhamento por rubrica
               </td>
             </tr>
             <tr class="comp-row" style="display:none;">
@@ -324,6 +324,7 @@
       caráter meramente estimativo/informativo e podem não corresponder fielmente ao seu contracheque, em razão da
       complexidade dos fatores envolvidos no cálculo. Em caso de dúvida, considere sempre o contracheque oficial
       emitido pela corporação.</p>
+  </div>
 </body>
 
 </html>

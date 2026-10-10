@@ -404,9 +404,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // ===== Helper: contagem de triênios pela data de praça =====
 document.addEventListener('DOMContentLoaded', function () {
-  const MS_DIA = 24 * 60 * 60 * 1000;
-  const DIAS_TRIENIO = 1095; // 3 anos, sem considerar bissextos
-
   const inputData = document.getElementById('data-praca');
   const btn = document.getElementById('btn-trienios');
   const elCount = document.getElementById('trienios-count');
@@ -433,13 +430,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const dataPraca = new Date(valor + 'T00:00:00');
     const hoje = new Date();
-    const dias = Math.floor((hoje - dataPraca) / MS_DIA);
 
-    if (!Number.isFinite(dias) || dias < 0) {
+    // anos completos por calendário (respeita bissextos): só conta o aniversário no próprio dia
+    let anos = hoje.getFullYear() - dataPraca.getFullYear();
+    const aindaNaoFez = (hoje.getMonth() < dataPraca.getMonth()) ||
+      (hoje.getMonth() === dataPraca.getMonth() && hoje.getDate() < dataPraca.getDate());
+    if (aindaNaoFez) anos--;
+
+    if (!Number.isFinite(anos) || anos < 0) {
       elCount.textContent = '0'; elPct.textContent = '0%'; return;
     }
 
-    const trienios = Math.floor(dias / DIAS_TRIENIO);
+    const trienios = Math.floor(anos / 3);
     elCount.textContent = trienios + (trienios === 1 ? ' triênio' : ' triênios');
     elPct.textContent = percentualSugerido(trienios) + '%';
   }
@@ -671,7 +673,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const item = btn.closest('.field');
     const inp = item ? item.querySelector('input[type=number]') : null;
     // valores negativos n\u00e3o fazem sentido nesses campos (vantagem, verba, desconto, pens\u00e3o) \u2014 trava em 0
-    if (inp) inp.dataset.commit = String(Math.max(0, parseFloat(inp.value) || 0));
+    if (inp) {
+      const v = Math.max(0, parseFloat(inp.value) || 0);
+      inp.value = String(v);
+      inp.dataset.commit = String(v);
+    }
     btn.style.background = ''; btn.style.color = ''; btn.textContent = '\u2713';
     calcular();
   }
@@ -801,7 +807,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (difChk && difChk.checked) {
       if (ehCel) {
         dif = 0.20 * soldo; // Coronel: 20% do próprio soldo
-      } else if (selDif && selDif.value) {
+      } else if (selDif && selDif.value && (parseFloat(opt.value) || 0) > 0) { // sem posto selecionado (soldo 0): sem Dif
         dif = ((parseFloat(selDif.value) || 0) - (parseFloat(opt.value) || 0)) * fator;
         if (dif < 0) dif = 0; // proteção: substituto nunca abaixo do posto atual
       }
@@ -889,10 +895,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const dedDep   = dep * DED_DEP;
     const parLegal = contribMil + dedDep;                       // Contrib. Militar + dependentes
     const parUsado = (parLegal < DESC_SIMPL) ? DESC_SIMPL : parLegal; // desconto simplificado se for maior
-    // isenção da GRAM no IR: se marcada, abate a GRAM da base de cálculo (não mexe no Rend. Tributável)
-    const chkIsencaoGram = document.getElementById('isencao-gram');
-    const abateGram = (chkIsencaoGram && chkIsencaoGram.checked) ? gram : 0;
-    const baseIR   = Math.max(0, remBruta - totalVind - parUsado - fuspom - pensao - abateGram - abateTeto);
+    const baseIR   = Math.max(0, remBruta - totalVind - parUsado - fuspom - pensao - abateTeto);
     const irBruto  = irTabela(baseIR);
     const reducao  = redutorIR(rendTrib, irBruto);
     const irrf     = Math.max(0, irBruto - reducao);
@@ -1097,9 +1100,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const podeTer = (p === 'Cel PM' || p === 'Ten Cel PM');
     card.style.display = podeTer ? '' : 'none';
     if (!podeTer) {
+      let zerou = false;
       card.querySelectorAll('.gratcmd-valor').forEach(function (inp) {
+        if (inp.dataset.commit !== '0') zerou = true;
         inp.value = '0'; inp.dataset.commit = '0';
       });
+      // este listener roda DEPOIS do cálculo principal: recalcula para tirar o valor antigo do resultado
+      if (zerou && posto) posto.dispatchEvent(new Event('change'));
     }
   }
   if (posto) posto.addEventListener('change', atualizarVisibilidade);
@@ -1116,7 +1123,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if (e.target && e.target.classList.contains('campo-ok')) {
       const item = e.target.closest('.field');
       const inp = item ? item.querySelector('input[type=number]') : null;
-      if (inp) inp.dataset.commit = String(Math.max(0, parseFloat(inp.value) || 0));
+      if (inp) {
+        const v = Math.max(0, parseFloat(inp.value) || 0); // nunca aceita negativo
+        inp.value = String(v);
+        inp.dataset.commit = String(v);
+      }
       e.target.style.background = ''; e.target.style.color = ''; e.target.textContent = '\u2713';
       if (posto) posto.dispatchEvent(new Event('change'));
     }
@@ -1137,23 +1148,6 @@ document.addEventListener('DOMContentLoaded', function () {
     '<div class="hint" style="margin-top:6px;">Indenização igual à Contribuição Militar: devolve esse valor ao líquido e é tributável (entra na base do IRPF). Fica fora do abate-teto.</div>';
   table.parentNode.insertBefore(box, table.nextSibling);
   const chk = document.getElementById('abono-chk');
-  if (chk && posto) chk.addEventListener('change', function () { posto.dispatchEvent(new Event('change')); });
-});
-
-// ===== Isenção de IRPF sobre a GRAM (decisão judicial/isenção específica) =====
-document.addEventListener('DOMContentLoaded', function () {
-  const table = document.querySelector('table.breakdown');
-  if (!table) return;
-  const box = document.createElement('div');
-  box.style.cssText = 'margin-top:16px; padding-top:14px; border-top:1px solid var(--borda);';
-  box.innerHTML =
-    '<label for="isencao-gram" style="display:flex;align-items:center;gap:10px;font-weight:700;cursor:pointer;font-size:13px;">' +
-      '<input type="checkbox" id="isencao-gram"> Isenção de IRPF sobre a GRAM' +
-    '</label>' +
-    '<div class="hint" style="margin-top:6px; font-size:12px; font-style: italic">Se marcado, abate o valor da GRAM da base de cálculo do IRPF (decisão judicial/isenção específica).</div>';
-  table.parentNode.appendChild(box);
-  const chk = document.getElementById('isencao-gram');
-  const posto = document.getElementById('posto');
   if (chk && posto) chk.addEventListener('change', function () { posto.dispatchEvent(new Event('change')); });
 });
 
