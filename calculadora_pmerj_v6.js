@@ -240,6 +240,7 @@ function gerarRelatorioPDF() {
     linha('GRAM (Risco)', txtRel('t-gram'));
     if (temValor('t-trienio')) linha('Triênios', txtRel('t-trienio'));
     if (temValor('t-gee')) linha('GEE - Encargos Especiais', txtRel('t-gee'));
+    if (temValor('t-pecunia')) linha('Det. Jud. Pecúnia — D21753 (' + txtRel('t-pecunia-p') + '%)', txtRel('t-pecunia'));
     linha('Remuneração Básica', txtRel('t-rem-basica'), { bold: true });
     y += 6;
     grupo(coletar('.vant-valor', '.vant-nome', 'Vantagem'), 'Outras Vantagens', '+', 't-vant');
@@ -475,6 +476,10 @@ document.addEventListener('DOMContentLoaded', function () {
   const trienioRow = rowOf('t-trienio');
   if (trienioRow && !document.getElementById('t-gee')) {
     trienioRow.parentNode.insertBefore(makeRow('comp-row', 'GEE — Encargos Especiais (60%)', 't-gee', 'pos'), trienioRow.nextSibling);
+  }
+  const geeRow = rowOf('t-gee');
+  if (geeRow && !document.getElementById('t-pecunia')) {
+    geeRow.parentNode.insertBefore(makeRow('comp-row', 'Det. Jud. Pecúnia (<span id="t-pecunia-p">0</span>%)', 't-pecunia', 'pos'), geeRow.nextSibling);
   }
   const contribRow = rowOf('t-contrib');
   if (contribRow && !document.getElementById('t-fuspom')) {
@@ -824,7 +829,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const geeChk = document.getElementById('gee-chk');
     const gee    = (ehCel && geeChk && geeChk.checked) ? 0.60 * (base + gret + ghp + gram) : 0;
 
-    const remBasica = base + gret + ghp + gram + trienio + gee;
+    // Det. Jud. Pecúnia (D21753): percentual sobre Soldo + Dif + GRET + GHP + Triênio.
+    // Integra a Remuneração Básica (aparece na composição, junto com seu percentual).
+    const chkPecunia = document.getElementById('vant-pecunia-chk');
+    const inpPecuniaPct = document.getElementById('vant-pecunia-pct');
+    const pecuniaPct = (chkPecunia && chkPecunia.checked) ? (parseFloat(String(inpPecuniaPct ? inpPecuniaPct.dataset.commit : 0).replace(',', '.')) || 0) : 0;
+    const pecunia = (base + gret + ghp + trienio) * pecuniaPct / 100;
+
+    const remBasica = base + gret + ghp + gram + trienio + gee + pecunia;
 
     // outras vantagens remuneratórias (TRIBUTÁVEIS, somadas -> Rem. Bruta); agrupadas
     let totalVant = 0;
@@ -912,7 +924,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.body.dataset.baseir = baseIR.toFixed(2);
     aplicarVisibilidadeZeros({
       't-soldo': soldo, 't-dif': dif, 't-gret': gret, 't-ghp': ghp,
-      't-gram': gram, 't-trienio': trienio, 't-gee': gee,
+      't-gram': gram, 't-trienio': trienio, 't-gee': gee, 't-pecunia': pecunia,
       't-vant': totalVant, 't-vind': totalVind, 't-gratcmd': totalGratCmd,
       't-abono': abono, 't-fuspom': fuspom, 't-desc-disc': descDisc,
       't-irrf': irrf, 't-pensao': pensao, 't-abate': abateTeto
@@ -929,6 +941,8 @@ document.addEventListener('DOMContentLoaded', function () {
     set('t-tri-p', pct(triPct));
     set('t-trienio', '+ ' + fmt.format(trienio));
     set('t-gee', '+ ' + fmt.format(gee));
+    set('t-pecunia-p', pct(pecuniaPct));
+    set('t-pecunia', '+ ' + fmt.format(pecunia));
     set('t-rem-basica', fmt.format(remBasica));
     set('t-vant', '+ ' + fmt.format(totalVant));
     set('t-vind', '+ ' + fmt.format(totalVind));
@@ -1149,6 +1163,61 @@ document.addEventListener('DOMContentLoaded', function () {
   table.parentNode.insertBefore(box, table.nextSibling);
   const chk = document.getElementById('abono-chk');
   if (chk && posto) chk.addEventListener('change', function () { posto.dispatchEvent(new Event('change')); });
+});
+
+// Campos só-inteiros (Pecúnia e Pensão): bloqueia ponto, vírgula, sinais e "e" na digitação.
+// (Função local ao IIFE; ligada por addEventListener, sem handler inline nem global.)
+function bloquearNaoInteiro(e) {
+  if (['.', ',', '-', '+', 'e', 'E'].indexOf(e.key) >= 0) e.preventDefault();
+}
+
+// ===== Det. Judicial Pecúnia (D21753) — percentual sobre Soldo+Dif+GRET+GHP+Triênio =====
+document.addEventListener('DOMContentLoaded', function () {
+  const lista = document.getElementById('vant-lista');
+  const card = lista ? lista.closest('.card') : null;
+  if (!card || document.getElementById('vant-pecunia-chk')) return;
+  const posto = document.getElementById('posto');
+
+  const box = document.createElement('div');
+  box.style.cssText = 'margin-top:10px; padding-top:12px; border-top:1px dashed var(--borda);';
+  box.innerHTML =
+    '<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">' +
+      '<label style="display:flex; align-items:center; gap:8px; font-weight:700; cursor:pointer; font-size:13px; margin:0; flex:1;">' +
+        '<input type="checkbox" id="vant-pecunia-chk"> Det. Jud. Pecúnia — D21753' +
+      '</label>' +
+      '<div id="vant-pecunia-wrap" style="display:none; align-items:center; gap:6px;">' +
+        '<div class="money-row" style="flex:0 0 90px;">' +
+          '<span class="money-prefix" style="min-width:34px;">%</span>' +
+          '<input type="number" id="vant-pecunia-pct" data-commit="0" value="0" min="0" max="100" step="1" inputmode="numeric" style="padding:10px 8px; font-size:13px;">' +
+        '</div>' +
+        '<button type="button" class="cen-btn campo-ok" id="vant-pecunia-ok" style="flex:0 0 auto; width:auto; padding:5px 8px; font-size:13px; line-height:1;" title="Confirmar (efetivar valor)">✓</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="hint-exp" style="margin-top:8px;">Determinação judicial de pecúnia (D21753): percentual aplicado sobre Soldo + Dif-Posto/Grad + GRET + GHP + Triênio. Integra a Remuneração Básica.</div>';
+  card.appendChild(box);
+
+  const chk = document.getElementById('vant-pecunia-chk');
+  const wrap = document.getElementById('vant-pecunia-wrap');
+  const inpPct = document.getElementById('vant-pecunia-pct');
+  const btnOk = document.getElementById('vant-pecunia-ok');
+  inpPct.addEventListener('keydown', bloquearNaoInteiro);
+
+  function recalcular() { if (posto) posto.dispatchEvent(new Event('change')); }
+
+  chk.addEventListener('change', function () {
+    wrap.style.display = chk.checked ? 'flex' : 'none';
+    recalcular();
+  });
+  inpPct.addEventListener('input', function () {
+    btnOk.style.background = 'var(--acento)'; btnOk.style.color = '#fff';
+  });
+  btnOk.addEventListener('click', function () {
+    const v = Math.min(100, Math.max(0, Math.round(parseFloat(inpPct.value) || 0))); // inteiro de 0 a 100%
+    inpPct.value = String(v);
+    inpPct.dataset.commit = String(v);
+    btnOk.style.background = ''; btnOk.style.color = ''; btnOk.textContent = '✓';
+    recalcular();
+  });
 });
 
 })();
