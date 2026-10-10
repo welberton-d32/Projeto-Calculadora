@@ -244,11 +244,11 @@ function gerarRelatorioPDF() {
     titulo('Composição da remuneração');
     linha('Soldo', txtRel('t-soldo'));
     if (temValor('t-dif')) linha('Dif-Posto/Grad', txtRel('t-dif'));
-    linha('GRET', txtRel('t-gret'));
-    if (temValor('t-ghp')) linha('GHP', txtRel('t-ghp'));
-    linha('GRAM (Risco)', txtRel('t-gram'));
-    if (temValor('t-trienio')) linha('Triênios', txtRel('t-trienio'));
-    if (temValor('t-gee')) linha('GEE - Encargos Especiais', txtRel('t-gee'));
+    linha('GRET (' + txtRel('t-gret-p') + '%)', txtRel('t-gret'));
+    if (temValor('t-ghp')) linha('GHP (' + txtRel('t-ghp-p') + '%)', txtRel('t-ghp'));
+    linha('GRAM — Risco (62,5%)', txtRel('t-gram'));
+    if (temValor('t-trienio')) linha('Triênio (' + txtRel('t-tri-p') + '%)', txtRel('t-trienio'));
+    if (temValor('t-gee')) linha('GEE — Encargos Especiais (60%)', txtRel('t-gee'));
     if (temValor('t-pecunia')) linha('Det. Jud. Pecúnia — D21753 (' + txtRel('t-pecunia-p') + '%)', txtRel('t-pecunia'));
     linha('Remuneração Básica', txtRel('t-rem-basica'), { bold: true });
     y += 6;
@@ -270,8 +270,8 @@ function gerarRelatorioPDF() {
 
     // ---- descontos ----
     titulo('Descontos');
-    linha('Contribuição Militar', txtRel('t-contrib'));
-    if (temValor('t-fuspom')) linha('FUSPOM', txtRel('t-fuspom'));
+    linha('Contribuição Militar (10,5%)', txtRel('t-contrib'));
+    if (temValor('t-fuspom')) linha('FUSPOM (' + txtRel('t-fuspom-p') + '%)', txtRel('t-fuspom'));
     grupo(coletar('.desc-disc-input', '.desc-disc-nome', 'Desconto'), 'Descontos Discricionários', '-', 't-desc-disc');
     if (temValor('t-irrf')) linha('Imposto de Renda (IRRF)', txtRel('t-irrf'));
     // pensões: uma linha para cada (valores já calculados separadamente no cálculo principal)
