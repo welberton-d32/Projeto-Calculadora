@@ -21,24 +21,12 @@
         <p>Versão para Policiais Militares Ativos.</p>
       </div>
     </header>
-    <!-- ====================== CHAVES DE REAJUSTE ====================== -->
-    <!-- Reajustes compostos sobre o soldo (no JS). Afetam todas as rubricas,
-       pois todas derivam do soldo.
-       1º = +5,62% | 2º = +5,62% sobre o já reajustado.
-       Acumulado: 1,0562 × 1,0562 = 1,11556 -> +11,56%. -->
-    <div class="card" style="margin-bottom:16px;">
-      <label for="reajuste"
-        style="display:flex; align-items:center; gap:10px; font-weight:700; cursor:pointer; margin:0;">
-        <input type="checkbox" id="reajuste">
-        1º reajuste — +5,62% sobre o soldo
-      </label>
-      <label for="reajuste2"
-        style="display:flex; align-items:center; gap:10px; font-weight:700; cursor:pointer; margin:10px 0 0;">
-        <input type="checkbox" id="reajuste2" disabled>
-        2º reajuste — +5,62% sobre o soldo já reajustado
-      </label>
-      <div class="hint" style="margin-top:8px; font-size: 12.5px">Reajustes compostos: o 2º incide sobre o soldo já reajustado pelo 1º. O
-        2º só fica disponível com o 1º ligado.</div>
+    <!-- ====================== REAJUSTES (JÁ EFETIVADOS) ====================== -->
+    <!-- Os dois reajustes de 5,62% estão fixos no cálculo (JS), compostos sobre o soldo.
+       Acumulado: 1,0562 × 1,0562 = 1,11556 -> +11,56%.
+       Este card também recebe, via JS, a opção de GEE (exclusiva de Coronel). -->
+    <div class="card" id="card-reajuste" style="margin-bottom:16px;">
+      <div class="hint" style="font-size: 12.5px">Soldos já com os dois reajustes de +5,62% aplicados (acumulado +11,56%).</div>
     </div>
 
 

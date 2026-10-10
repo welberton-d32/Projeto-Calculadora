@@ -411,8 +411,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // Move o card de reajustes para logo ACIMA do quadro "breakdown".
 document.addEventListener('DOMContentLoaded', function () {
-  const reaj = document.getElementById('reajuste');
-  const reajCard = reaj ? reaj.closest('.card') : null;
+  const reajCard = document.getElementById('card-reajuste');
   const bdTable = document.querySelector('table.breakdown');
   const bdCard = bdTable ? bdTable.closest('.card') : null;
   if (reajCard && bdCard && bdCard.parentNode) {
@@ -591,8 +590,7 @@ document.addEventListener('DOMContentLoaded', function () {
 // ===== GEE (Encargos Especiais) — só para Coronel, no card de reajuste =====
 document.addEventListener('DOMContentLoaded', function () {
   const posto = document.getElementById('posto');
-  const reaj = document.getElementById('reajuste');
-  const reajCard = reaj ? reaj.closest('.card') : null;
+  const reajCard = document.getElementById('card-reajuste');
   if (!posto || !reajCard) return;
 
   const box = document.createElement('div');
@@ -636,16 +634,14 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnAddPensao = document.getElementById('btn-add-pensao');
   const elDescDiscMax = document.getElementById('desc-disc-max');
   const elDescDiscAviso = document.getElementById('desc-disc-aviso');
-  const chkReaj  = document.getElementById('reajuste');
-  const chkReaj2 = document.getElementById('reajuste2');
 
   if (!selPosto || !selHab || !selTri) {
     console.error('Cálculo: elemento não encontrado. Confira os id posto, habilitacao, trienio.');
     return;
   }
 
-  const REAJUSTE1_PCT = 5.62; // 1º reajuste
-  const REAJUSTE2_PCT = 5.62; // 2º reajuste, sobre o soldo já reajustado pelo 1º
+  // Reajustes já efetivados e compostos sobre o soldo: 1º +5,62% e 2º +5,62% (sobre o já reajustado)
+  const FATOR_REAJUSTE = (1 + 5.62 / 100) * (1 + 5.62 / 100);
   const CONTRIB_MIL_PCT = 10.5; // Contribuição Militar (previdência) sobre a Rem. Básica
   const DED_DEP = 189.59; // dedução por dependente no IR
   const MAX_DESCONTOS = 5; // limite de campos discricionários
@@ -812,9 +808,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function calcular() {
     const opt = selPosto.options[selPosto.selectedIndex];
-    let fator = 1;                                          // reajustes compostos
-    if (chkReaj  && chkReaj.checked)  fator *= 1 + REAJUSTE1_PCT / 100;
-    if (chkReaj2 && chkReaj2.checked) fator *= 1 + REAJUSTE2_PCT / 100;
+    const fator = FATOR_REAJUSTE;                           // reajustes compostos (fixos)
     const soldo   = (parseFloat(opt.value) || 0) * fator;  // value do #posto (× reajustes)
     const gretPct = parseFloat(opt.dataset.gret) || 0;     // data-gret do #posto
     const ghpPct  = parseFloat(selHab.value) || 0;         // value do #habilitacao
@@ -1110,16 +1104,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
   atualizarBtnAddPensao();
-
-  if (chkReaj) chkReaj.addEventListener('change', function () {
-    // 2º reajuste só fica disponível com o 1º ligado
-    if (chkReaj2) {
-      chkReaj2.disabled = !chkReaj.checked;
-      if (!chkReaj.checked) chkReaj2.checked = false;
-    }
-    calcular();
-  });
-  if (chkReaj2) chkReaj2.addEventListener('change', calcular);
 
   // esconde rubricas zeradas; comp-rows respeitam também o estado do "Ver detalhamento"
   let compAberta = false;
