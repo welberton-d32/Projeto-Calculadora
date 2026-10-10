@@ -147,7 +147,7 @@
 
       <details class="card">
         <summary style="cursor:pointer; color:var(--primary-strong); font-weight:800; font-size:13px;  text-decoration: underline  1px;">Não sabe seus triênios?
-          Calcule pelas datas de praça e de inatividade</summary>
+          Calcule pelas datas de praça e de inatividade e pelo tempo averbado</summary>
         <div style="margin-top:18px;">
           <div class="field">
             <label for="data-praca"> Data de praça: </label>
@@ -161,6 +161,13 @@
             <div class="hint"> O tempo de serviço é contado da data de praça até esta data.</div>
           </div>
 
+          <div class="field">
+            <label>Tempo averbado de outras forças</label>
+            <div id="averbado-lista"><!-- linhas adicionadas aqui (máx. 5) --></div>
+            <button type="button" class="cen-btn" id="btn-add-averbado" style="width:100%; margin-top:10px;">+ Adicionar tempo averbado</button>
+            <div class="hint" style="margin-top:6px;">Tempo de serviço já averbado pela instituição (Forças Armadas, outras corporações). Informe anos, meses e dias de cada averbação; eles são somados ao período na PMERJ.</div>
+          </div>
+
           <button type="button" class="cen-btn" id="btn-trienios" style="width:100%; margin-bottom:18px;">Calcular
             triênios</button>
           <div class="field">
@@ -170,6 +177,7 @@
               <span class="slider-val" id="trienios-count">—</span>
               <span class="slider-val" id="trienios-pct">—</span>
             </div>
+            <div class="hint" id="trienios-detalhe" style="margin-top:6px;"></div>
             <div class="hint" id="trienios-aviso" style="display:none; color:var(--vermelho); font-weight:600; margin-top:6px;"></div>
           </div>
         </div>
