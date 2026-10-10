@@ -219,8 +219,9 @@
         <div id="pensao-lista"><!-- campos adicionados aqui (máx. 5) --></div>
         <button type="button" class="cen-btn" id="btn-add-pensao" style="width:100%; margin-top:10px;">+ Adicionar
           pensão</button>
-        <div class="hint hint-exp" style="margin-top:8px;">Pensão alimentícia descontada em folha (judicial/acordo).
-          Abate também da base do IR.</div>
+        <div class="hint hint-exp" style="margin-top:8px;">Pensão alimentícia (judicial/acordo), informada em % (número inteiro).
+          Calculada sobre a Remuneração Bruta (sem as verbas indenizatórias), já descontados Contribuição Militar, FUSPOM, abate-teto e Imposto de Renda.
+          O valor pago de pensão também reduz a base de cálculo do IR.</div>
       </div>
 
       <!-- ============ CARD DE RESULTADO ============ -->
@@ -304,13 +305,10 @@
               <td class="neg" id="t-desc-disc">− R$&nbsp;0,00</td>
             </tr>
             <tr>
-              <td class="lbl-cell">(−) Pensões <span class="badge-aux">judicial/acordo</span></td>
-              <td class="neg" id="t-pensao">− R$&nbsp;0,00</td>
-            </tr>
-            <tr>
               <td class="lbl-cell">(−) Imposto de Renda Retido na Fonte <span class="badge-aux">simulação</span></td>
               <td class="neg" id="t-irrf">− R$&nbsp;0,00</td>
             </tr>
+            <!-- as linhas de Pensão (uma por pensão informada) são inseridas aqui pelo JS, após o IRRF -->
             <tr class="final">
               <td>Remuneração Líquida</td>
               <td id="t-liquido">R$&nbsp;0,00</td>

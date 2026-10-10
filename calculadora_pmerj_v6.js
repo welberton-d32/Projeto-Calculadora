@@ -260,7 +260,12 @@ function gerarRelatorioPDF() {
     if (temValor('t-fuspom')) linha('FUSPOM', txtRel('t-fuspom'));
     grupo(coletar('.desc-disc-input', '.desc-disc-nome', 'Desconto'), 'Descontos Discricionários', '-', 't-desc-disc');
     if (temValor('t-irrf')) linha('Imposto de Renda (IRRF)', txtRel('t-irrf'));
-    grupo(coletar('.pensao-input', null, 'Pensão'), 'Pensões', '-', 't-pensao');
+    // pensões: uma linha para cada (valores já calculados separadamente no cálculo principal)
+    let listaPens = [];
+    try { listaPens = JSON.parse(document.body.dataset.pensoes || '[]'); } catch (e) { listaPens = []; }
+    listaPens.forEach(function (p) {
+      linha(p.nome + ' (' + p.pct + '%)', '- ' + fmtBR(p.valor));
+    });
     if (temValor('t-abate')) linha('Abate-teto', txtRel('t-abate'));
     linha('Total dos Descontos', '- ' + txtRel('r-desc'), { bold: true });
     y += 8; doc.setDrawColor(120); doc.line(M, y, DIR, y); y += 22;
@@ -679,7 +684,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const inp = item ? item.querySelector('input[type=number]') : null;
     // valores negativos n\u00e3o fazem sentido nesses campos (vantagem, verba, desconto, pens\u00e3o) \u2014 trava em 0
     if (inp) {
-      const v = Math.max(0, parseFloat(inp.value) || 0);
+      let v = Math.max(0, parseFloat(inp.value) || 0); // nunca aceita negativo
+      if (inp.classList.contains('pensao-input')) v = Math.min(100, Math.round(v)); // pensão: % inteiro (0 a 100)
       inp.value = String(v);
       inp.dataset.commit = String(v);
     }
@@ -714,19 +720,20 @@ document.addEventListener('DOMContentLoaded', function () {
     btnAddPensao.textContent = cheio ? 'Limite de 5 pensões atingido' : '+ Adicionar pensão';
   }
 
-  // cria um novo campo de pensão (valor em vermelho), se não estourar o limite
+  // cria um novo campo de pensão (percentual inteiro, em vermelho), se não estourar o limite
   function criarCampoPensao() {
     if (!listaPensao || listaPensao.children.length >= MAX_PENSAO) return;
     const item = document.createElement('div');
     item.className = 'field pensao-item';
     item.style.cssText = 'display:flex; gap:8px; align-items:center;';
     item.innerHTML =
-      '<div class="money-row" style="flex:1;">' +
-        '<span class="money-prefix">R$</span>' +
-        '<input type="number" class="pensao-input" data-commit="0" value="0" min="0" step="0.01" inputmode="decimal" style="color: var(--vermelho);">' +
+      '<div class="money-row" style="flex:0 0 90px;">' +
+        '<span class="money-prefix" style="min-width:34px;">%</span>' +
+        '<input type="number" class="pensao-input" data-commit="0" value="0" min="0" max="100" step="1" inputmode="numeric" style="color: var(--vermelho); padding:10px 8px; font-size:13px;">' +
       '</div>' +
       '<button type="button" class="cen-btn campo-ok" style="flex:0 0 auto; width:auto; padding:5px 8px; font-size:13px; line-height:1;" title="Confirmar (efetivar valor)">✓</button>' +
       '<button type="button" class="cen-btn pensao-rem" style="flex:0 0 auto; width:auto; padding:5px 8px; font-size:13px; line-height:1;" title="Remover">×</button>';
+    item.querySelector('.pensao-input').addEventListener('keydown', bloquearNaoInteiro);
     listaPensao.appendChild(item);
     atualizarBtnAddPensao();
   }
@@ -891,26 +898,55 @@ document.addEventListener('DOMContentLoaded', function () {
     if (elDescDiscMax)   elDescDiscMax.textContent = fmt.format(capDisc);
     if (elDescDiscAviso) elDescDiscAviso.style.display = (somaDisc > capDisc) ? 'block' : 'none';
 
-    // pensões (desconto): soma dos campos. Reduz o líquido E abate da base do IR.
-    let pensao = 0;
-    if (listaPensao) {
-      listaPensao.querySelectorAll('.pensao-input').forEach(function (inp) {
-        pensao += parseFloat(String(inp.dataset.commit).replace(',', '.')) || 0;
-      });
-    }
-
     // Rendimento Tributável (só para o redutor) = Rem. Bruta − Verbas Indenizatórias − (189,59 × dep) − FUSPOM
     const rendTrib = Math.max(0, remBruta - totalVind - dep * DED_DEP - fuspom);
 
     // IRPF (simulação)
-    // Base de Cálculo = Rem. Bruta − Verbas Indenizatórias − [Contrib. Militar + dependentes OU 607,20 (o maior)] − FUSPOM − Pensão(0)
+    // Base de Cálculo = Rem. Bruta − Verbas Indenizatórias − [Contrib. Militar + dependentes OU 607,20 (o maior)] − FUSPOM − Pensão paga
     const dedDep   = dep * DED_DEP;
     const parLegal = contribMil + dedDep;                       // Contrib. Militar + dependentes
     const parUsado = (parLegal < DESC_SIMPL) ? DESC_SIMPL : parLegal; // desconto simplificado se for maior
-    const baseIR   = Math.max(0, remBruta - totalVind - parUsado - fuspom - pensao - abateTeto);
-    const irBruto  = irTabela(baseIR);
-    const reducao  = redutorIR(rendTrib, irBruto);
-    const irrf     = Math.max(0, irBruto - reducao);
+    // IRRF em função do total de Pensão paga (a Pensão reduz a base do IR)
+    function calcIR(pens) {
+      const b = Math.max(0, remBruta - totalVind - parUsado - fuspom - pens - abateTeto);
+      const bruto = irTabela(b);
+      return { base: b, irrf: Math.max(0, bruto - redutorIR(rendTrib, bruto)) };
+    }
+
+    // Pensões: cada uma é um percentual inteiro (soma limitada a 100%), calculada SEPARADAMENTE
+    // sobre o líquido após os descontos obrigatórios: (Rem. Bruta − Verbas Indenizatórias) − Contrib. Militar − FUSPOM − Abate-teto − IRRF.
+    // (as verbas indenizatórias NÃO entram na base da pensão)
+    const pensoes = [];
+    let pctRestante = 100;
+    if (listaPensao) {
+      listaPensao.querySelectorAll('.pensao-input').forEach(function (inp) {
+        const p = Math.min(pctRestante, Math.max(0, parseInt(inp.dataset.commit, 10) || 0));
+        if (p <= 0) return;
+        pctRestante -= p;
+        pensoes.push({ nome: 'Pensão ' + (pensoes.length + 1), pct: p, valor: 0 });
+      });
+    }
+    const fracPensao = (100 - pctRestante) / 100;
+
+    // Dependência circular: o IRRF depende da Pensão (que reduz a base) e a Pensão depende do IRRF
+    // (calculada após ele). Resolvida por iteração: como a Pensão abate no máx. 27,5% da base,
+    // o processo é uma contração e converge em poucas voltas.
+    const antesIR = Math.max(0, remBruta - totalVind - contribMil - fuspom - abateTeto);
+    let ir = calcIR(0), pensTotal = 0;
+    for (let k = 0; k < 50; k++) {
+      const novaPens = Math.max(0, antesIR - ir.irrf) * fracPensao;
+      const novoIr = calcIR(novaPens);
+      const convergiu = Math.abs(novaPens - pensTotal) < 0.0001 && Math.abs(novoIr.irrf - ir.irrf) < 0.0001;
+      pensTotal = novaPens; ir = novoIr;
+      if (convergiu) break;
+    }
+    const basePensao = Math.max(0, antesIR - ir.irrf);
+    pensoes.forEach(function (p) { p.valor = Math.round(basePensao * p.pct) / 100; });   // cada uma, em centavos
+    const pensao = pensoes.reduce(function (s, x) { return s + x.valor; }, 0);            // total = soma das linhas
+    ir = calcIR(pensao);                                                                  // IRRF final com a pensão arredondada
+    const baseIR = ir.base;
+    const irrf   = ir.irrf;
+    document.body.dataset.pensoes = JSON.stringify(pensoes);
 
     // Remuneração Líquida = Rem. Bruta − todos os descontos
     const totalDescontos = contribMil + fuspom + descDisc + irrf + pensao + abateTeto;
@@ -927,7 +963,7 @@ document.addEventListener('DOMContentLoaded', function () {
       't-gram': gram, 't-trienio': trienio, 't-gee': gee, 't-pecunia': pecunia,
       't-vant': totalVant, 't-vind': totalVind, 't-gratcmd': totalGratCmd,
       't-abono': abono, 't-fuspom': fuspom, 't-desc-disc': descDisc,
-      't-irrf': irrf, 't-pensao': pensao, 't-abate': abateTeto
+      't-irrf': irrf, 't-abate': abateTeto
     });
 
     // detalhamento (table.breakdown)
@@ -954,7 +990,25 @@ document.addEventListener('DOMContentLoaded', function () {
     set('t-fuspom', '− ' + fmt.format(fuspom));
     set('t-desc-disc', '− ' + fmt.format(descDisc));
     set('t-irrf', '− ' + fmt.format(irrf));
-    set('t-pensao', '− ' + fmt.format(pensao));
+    // uma linha no breakdown para CADA pensão, logo após o IRRF
+    document.querySelectorAll('tr.pensao-row').forEach(function (tr) { tr.remove(); });
+    const irrfTr = document.getElementById('t-irrf') ? document.getElementById('t-irrf').closest('tr') : null;
+    if (irrfTr) {
+      let ancora = irrfTr;
+      pensoes.forEach(function (p) {
+        const tr = document.createElement('tr');
+        tr.className = 'pensao-row';
+        const td1 = document.createElement('td');
+        td1.className = 'lbl-cell';
+        td1.innerHTML = '(−) ' + p.nome + ' (' + p.pct + '%) <span class="badge-aux">judicial/acordo</span>';
+        const td2 = document.createElement('td');
+        td2.className = 'neg';
+        td2.textContent = '− ' + fmt.format(p.valor);
+        tr.appendChild(td1); tr.appendChild(td2);
+        ancora.parentNode.insertBefore(tr, ancora.nextSibling);
+        ancora = tr;
+      });
+    }
     set('t-abate', '− ' + fmt.format(abateTeto));
     set('t-liquido', fmt.format(liquido));
   }
