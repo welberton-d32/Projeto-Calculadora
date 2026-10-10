@@ -405,19 +405,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // ===== Helper: contagem de triênios pela data de praça =====
 document.addEventListener('DOMContentLoaded', function () {
-  const MS_DIA = 24 * 60 * 60 * 1000;
-  const DIAS_TRIENIO = 1095; // 3 anos, sem considerar bissextos
-
   const inputData = document.getElementById('data-praca');
+  const inputFim = document.getElementById('data-inatividade');
   const btn = document.getElementById('btn-trienios');
   const elCount = document.getElementById('trienios-count');
   const elPct = document.getElementById('trienios-pct');
+  const elAviso = document.getElementById('trienios-aviso');
 
   // Guarda de depuração: avisa no console se algum id não existir
-  if (!inputData || !btn || !elCount || !elPct) {
+  if (!inputData || !inputFim || !btn || !elCount || !elPct || !elAviso) {
     console.error('Helper de triênios: elemento não encontrado. Confira os id ' +
-      'data-praca, btn-trienios, trienios-count, trienios-pct.', {
-        inputData: !!inputData, btn: !!btn, elCount: !!elCount, elPct: !!elPct
+      'data-praca, data-inatividade, btn-trienios, trienios-count, trienios-pct, trienios-aviso.', {
+        inputData: !!inputData, inputFim: !!inputFim, btn: !!btn, elCount: !!elCount, elPct: !!elPct, elAviso: !!elAviso
       });
     return;
   }
@@ -428,19 +427,38 @@ document.addEventListener('DOMContentLoaded', function () {
     return Math.min(60, 5 + 5 * trienios);
   }
 
+  function mostrarAviso(msg) {
+    elAviso.textContent = msg || '';
+    elAviso.style.display = msg ? 'block' : 'none';
+  }
+
+  // Veterano: o tempo de serviço é contado da data de praça até a data da passagem
+  // para a inatividade (e não até hoje).
   function calcularTrienios() {
-    const valor = inputData.value;
-    if (!valor) { elCount.textContent = '—'; elPct.textContent = '—'; return; }
-
-    const dataPraca = new Date(valor + 'T00:00:00');
-    const hoje = new Date();
-    const dias = Math.floor((hoje - dataPraca) / MS_DIA);
-
-    if (!Number.isFinite(dias) || dias < 0) {
-      elCount.textContent = '0'; elPct.textContent = '0%'; return;
+    mostrarAviso('');
+    if (!inputData.value) { elCount.textContent = '—'; elPct.textContent = '—'; return; }
+    if (!inputFim.value) {
+      elCount.textContent = '—'; elPct.textContent = '—';
+      mostrarAviso('Informe a data da passagem para a inatividade: a contagem termina nela.');
+      return;
     }
 
-    const trienios = Math.floor(dias / DIAS_TRIENIO);
+    const dataPraca = new Date(inputData.value + 'T00:00:00');
+    const dataFim = new Date(inputFim.value + 'T00:00:00');
+
+    // anos completos por calendário (respeita bissextos): só conta o aniversário no próprio dia
+    let anos = dataFim.getFullYear() - dataPraca.getFullYear();
+    const aindaNaoFez = (dataFim.getMonth() < dataPraca.getMonth()) ||
+      (dataFim.getMonth() === dataPraca.getMonth() && dataFim.getDate() < dataPraca.getDate());
+    if (aindaNaoFez) anos--;
+
+    if (!Number.isFinite(anos) || anos < 0) {
+      elCount.textContent = '0'; elPct.textContent = '0%';
+      mostrarAviso('A data da inatividade é anterior à data de praça. Confira as datas.');
+      return;
+    }
+
+    const trienios = Math.floor(anos / 3);
     elCount.textContent = trienios + (trienios === 1 ? ' triênio' : ' triênios');
     elPct.textContent = percentualSugerido(trienios) + '%';
   }

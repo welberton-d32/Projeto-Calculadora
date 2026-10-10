@@ -147,12 +147,18 @@
 
       <details class="card">
         <summary style="cursor:pointer; color:var(--primary-strong); font-weight:800; font-size:13px;  text-decoration: underline  1px;">Não sabe seus triênios?
-          Calcule pela data de praça</summary>
+          Calcule pelas datas de praça e de inatividade</summary>
         <div style="margin-top:18px;">
           <div class="field">
             <label for="data-praca"> Data de praça: </label>
-            <input type="date" id="data-praca"> <span class="hint" style="flex:1;">mês / dia / ano</span>
+            <input type="date" id="data-praca"> <span class="hint" style="flex:1;">dia / mês / ano</span>
             <div class="hint"> Data de Ingresso na corporação.</div>
+          </div>
+
+          <div class="field">
+            <label for="data-inatividade"> Data da passagem para a inatividade: </label>
+            <input type="date" id="data-inatividade"> <span class="hint" style="flex:1;">dia / mês / ano</span>
+            <div class="hint"> O tempo de serviço é contado da data de praça até esta data.</div>
           </div>
 
           <button type="button" class="cen-btn" id="btn-trienios" style="width:100%; margin-bottom:18px;">Calcular
@@ -164,6 +170,7 @@
               <span class="slider-val" id="trienios-count">—</span>
               <span class="slider-val" id="trienios-pct">—</span>
             </div>
+            <div class="hint" id="trienios-aviso" style="display:none; color:var(--vermelho); font-weight:600; margin-top:6px;"></div>
           </div>
         </div>
       </details>
