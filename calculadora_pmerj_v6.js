@@ -126,6 +126,15 @@ function mostrarPreviewPDF(doc, nomeArquivo) {
   overlay.addEventListener('click', function (e) { if (e.target === overlay) fechar(); });
 }
 
+// Verbas fixas indenizatórias (atalhos)
+function valorAuxTransporte() { return 350.00; }
+// Etapa (Destacado): R$ 433,80 para Cabos e Soldados; R$ 465,60 para os demais
+function valorEtapaDestacado() {
+  const posto = document.getElementById('posto');
+  const p = (posto && posto.options[posto.selectedIndex]) ? posto.options[posto.selectedIndex].textContent.trim() : '';
+  return (p === 'Cb PM' || p === 'Sd PM') ? 433.80 : 465.60;
+}
+
 // Monta e baixa o PDF com os valores atuais da simulação.
 function gerarRelatorioPDF() {
   carregarJsPDF(function () {
@@ -235,15 +244,21 @@ function gerarRelatorioPDF() {
     titulo('Composição da remuneração');
     linha('Soldo', txtRel('t-soldo'));
     if (temValor('t-dif')) linha('Dif-Posto/Grad', txtRel('t-dif'));
-    linha('GRET', txtRel('t-gret'));
-    if (temValor('t-ghp')) linha('GHP', txtRel('t-ghp'));
-    linha('GRAM (Risco)', txtRel('t-gram'));
-    if (temValor('t-trienio')) linha('Triênios', txtRel('t-trienio'));
-    if (temValor('t-gee')) linha('GEE - Encargos Especiais', txtRel('t-gee'));
+    linha('GRET (' + txtRel('t-gret-p') + '%)', txtRel('t-gret'));
+    if (temValor('t-ghp')) linha('GHP (' + txtRel('t-ghp-p') + '%)', txtRel('t-ghp'));
+    linha('GRAM — Risco (62,5%)', txtRel('t-gram'));
+    if (temValor('t-trienio')) linha('Triênio (' + txtRel('t-tri-p') + '%)', txtRel('t-trienio'));
+    if (temValor('t-gee')) linha('GEE — Encargos Especiais (60%)', txtRel('t-gee'));
+    if (temValor('t-pecunia')) linha('Det. Jud. Pecúnia — D21753 (' + txtRel('t-pecunia-p') + '%)', txtRel('t-pecunia'));
     linha('Remuneração Básica', txtRel('t-rem-basica'), { bold: true });
     y += 6;
     grupo(coletar('.vant-valor', '.vant-nome', 'Vantagem'), 'Outras Vantagens', '+', 't-vant');
-    grupo(coletar('.vind-valor', '.vind-nome', 'Verba'), 'Verbas Indenizatórias', '+', 't-vind');
+    const itensVind = coletar('.vind-valor', '.vind-nome', 'Verba');
+    const _aT = document.getElementById('vind-aux-transporte');
+    if (_aT && _aT.checked) itensVind.push({ v: valorAuxTransporte(), nome: 'Auxílio Transporte' });
+    const _eT = document.getElementById('vind-etapa');
+    if (_eT && _eT.checked) itensVind.push({ v: valorEtapaDestacado(), nome: 'Etapa (Destacado)' });
+    grupo(itensVind, 'Verbas Indenizatórias', '+', 't-vind');
     const gc = coletarGrat();
     if (gc.length > 0) {
       y += 4; doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text('Gratificações de Comando', M, y); y += 15; doc.setFont('helvetica', 'normal');
@@ -255,11 +270,16 @@ function gerarRelatorioPDF() {
 
     // ---- descontos ----
     titulo('Descontos');
-    linha('Contribuição Militar', txtRel('t-contrib'));
-    if (temValor('t-fuspom')) linha('FUSPOM', txtRel('t-fuspom'));
+    linha('Contribuição Militar (10,5%)', txtRel('t-contrib'));
+    if (temValor('t-fuspom')) linha('FUSPOM (' + txtRel('t-fuspom-p') + '%)', txtRel('t-fuspom'));
     grupo(coletar('.desc-disc-input', '.desc-disc-nome', 'Desconto'), 'Descontos Discricionários', '-', 't-desc-disc');
     if (temValor('t-irrf')) linha('Imposto de Renda (IRRF)', txtRel('t-irrf'));
-    grupo(coletar('.pensao-input', null, 'Pensão'), 'Pensões', '-', 't-pensao');
+    // pensões: uma linha para cada (valores já calculados separadamente no cálculo principal)
+    let listaPens = [];
+    try { listaPens = JSON.parse(document.body.dataset.pensoes || '[]'); } catch (e) { listaPens = []; }
+    listaPens.forEach(function (p) {
+      linha(p.nome + ' (' + p.pct + '%)', '- ' + fmtBR(p.valor));
+    });
     if (temValor('t-abate')) linha('Abate-teto', txtRel('t-abate'));
     linha('Total dos Descontos', '- ' + txtRel('r-desc'), { bold: true });
     y += 8; doc.setDrawColor(120); doc.line(M, y, DIR, y); y += 22;
@@ -391,8 +411,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // Move o card de reajustes para logo ACIMA do quadro "breakdown".
 document.addEventListener('DOMContentLoaded', function () {
-  const reaj = document.getElementById('reajuste');
-  const reajCard = reaj ? reaj.closest('.card') : null;
+  const reajCard = document.getElementById('card-reajuste');
   const bdTable = document.querySelector('table.breakdown');
   const bdCard = bdTable ? bdTable.closest('.card') : null;
   if (reajCard && bdCard && bdCard.parentNode) {
@@ -404,9 +423,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // ===== Helper: contagem de triênios pela data de praça =====
 document.addEventListener('DOMContentLoaded', function () {
-  const MS_DIA = 24 * 60 * 60 * 1000;
-  const DIAS_TRIENIO = 1095; // 3 anos, sem considerar bissextos
-
   const inputData = document.getElementById('data-praca');
   const btn = document.getElementById('btn-trienios');
   const elCount = document.getElementById('trienios-count');
@@ -433,13 +449,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const dataPraca = new Date(valor + 'T00:00:00');
     const hoje = new Date();
-    const dias = Math.floor((hoje - dataPraca) / MS_DIA);
 
-    if (!Number.isFinite(dias) || dias < 0) {
+    // anos completos por calendário (respeita bissextos): só conta o aniversário no próprio dia
+    let anos = hoje.getFullYear() - dataPraca.getFullYear();
+    const aindaNaoFez = (hoje.getMonth() < dataPraca.getMonth()) ||
+      (hoje.getMonth() === dataPraca.getMonth() && hoje.getDate() < dataPraca.getDate());
+    if (aindaNaoFez) anos--;
+
+    if (!Number.isFinite(anos) || anos < 0) {
       elCount.textContent = '0'; elPct.textContent = '0%'; return;
     }
 
-    const trienios = Math.floor(dias / DIAS_TRIENIO);
+    const trienios = Math.floor(anos / 3);
     elCount.textContent = trienios + (trienios === 1 ? ' triênio' : ' triênios');
     elPct.textContent = percentualSugerido(trienios) + '%';
   }
@@ -473,6 +494,10 @@ document.addEventListener('DOMContentLoaded', function () {
   const trienioRow = rowOf('t-trienio');
   if (trienioRow && !document.getElementById('t-gee')) {
     trienioRow.parentNode.insertBefore(makeRow('comp-row', 'GEE — Encargos Especiais (60%)', 't-gee', 'pos'), trienioRow.nextSibling);
+  }
+  const geeRow = rowOf('t-gee');
+  if (geeRow && !document.getElementById('t-pecunia')) {
+    geeRow.parentNode.insertBefore(makeRow('comp-row', 'Det. Jud. Pecúnia (<span id="t-pecunia-p">0</span>%)', 't-pecunia', 'pos'), geeRow.nextSibling);
   }
   const contribRow = rowOf('t-contrib');
   if (contribRow && !document.getElementById('t-fuspom')) {
@@ -565,8 +590,7 @@ document.addEventListener('DOMContentLoaded', function () {
 // ===== GEE (Encargos Especiais) — só para Coronel, no card de reajuste =====
 document.addEventListener('DOMContentLoaded', function () {
   const posto = document.getElementById('posto');
-  const reaj = document.getElementById('reajuste');
-  const reajCard = reaj ? reaj.closest('.card') : null;
+  const reajCard = document.getElementById('card-reajuste');
   if (!posto || !reajCard) return;
 
   const box = document.createElement('div');
@@ -610,16 +634,14 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnAddPensao = document.getElementById('btn-add-pensao');
   const elDescDiscMax = document.getElementById('desc-disc-max');
   const elDescDiscAviso = document.getElementById('desc-disc-aviso');
-  const chkReaj  = document.getElementById('reajuste');
-  const chkReaj2 = document.getElementById('reajuste2');
 
   if (!selPosto || !selHab || !selTri) {
     console.error('Cálculo: elemento não encontrado. Confira os id posto, habilitacao, trienio.');
     return;
   }
 
-  const REAJUSTE1_PCT = 5.62; // 1º reajuste
-  const REAJUSTE2_PCT = 5.62; // 2º reajuste, sobre o soldo já reajustado pelo 1º
+  // Reajustes já efetivados e compostos sobre o soldo: 1º +5,62% e 2º +5,62% (sobre o já reajustado)
+  const FATOR_REAJUSTE = (1 + 5.62 / 100) * (1 + 5.62 / 100);
   const CONTRIB_MIL_PCT = 10.5; // Contribuição Militar (previdência) sobre a Rem. Básica
   const DED_DEP = 189.59; // dedução por dependente no IR
   const MAX_DESCONTOS = 5; // limite de campos discricionários
@@ -671,7 +693,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const item = btn.closest('.field');
     const inp = item ? item.querySelector('input[type=number]') : null;
     // valores negativos n\u00e3o fazem sentido nesses campos (vantagem, verba, desconto, pens\u00e3o) \u2014 trava em 0
-    if (inp) inp.dataset.commit = String(Math.max(0, parseFloat(inp.value) || 0));
+    if (inp) {
+      let v = Math.max(0, parseFloat(inp.value) || 0); // nunca aceita negativo
+      if (inp.classList.contains('pensao-input')) v = Math.min(100, Math.round(v)); // pensão: % inteiro (0 a 100)
+      inp.value = String(v);
+      inp.dataset.commit = String(v);
+    }
     btn.style.background = ''; btn.style.color = ''; btn.textContent = '\u2713';
     calcular();
   }
@@ -703,19 +730,20 @@ document.addEventListener('DOMContentLoaded', function () {
     btnAddPensao.textContent = cheio ? 'Limite de 5 pensões atingido' : '+ Adicionar pensão';
   }
 
-  // cria um novo campo de pensão (valor em vermelho), se não estourar o limite
+  // cria um novo campo de pensão (percentual inteiro, em vermelho), se não estourar o limite
   function criarCampoPensao() {
     if (!listaPensao || listaPensao.children.length >= MAX_PENSAO) return;
     const item = document.createElement('div');
     item.className = 'field pensao-item';
     item.style.cssText = 'display:flex; gap:8px; align-items:center;';
     item.innerHTML =
-      '<div class="money-row" style="flex:1;">' +
-        '<span class="money-prefix">R$</span>' +
-        '<input type="number" class="pensao-input" data-commit="0" value="0" min="0" step="0.01" inputmode="decimal" style="color: var(--vermelho);">' +
+      '<div class="money-row" style="flex:0 0 90px;">' +
+        '<span class="money-prefix" style="min-width:34px;">%</span>' +
+        '<input type="number" class="pensao-input" data-commit="0" value="0" min="0" max="100" step="1" inputmode="numeric" style="color: var(--vermelho); padding:10px 8px; font-size:13px;">' +
       '</div>' +
       '<button type="button" class="cen-btn campo-ok" style="flex:0 0 auto; width:auto; padding:5px 8px; font-size:13px; line-height:1;" title="Confirmar (efetivar valor)">✓</button>' +
       '<button type="button" class="cen-btn pensao-rem" style="flex:0 0 auto; width:auto; padding:5px 8px; font-size:13px; line-height:1;" title="Remover">×</button>';
+    item.querySelector('.pensao-input').addEventListener('keydown', bloquearNaoInteiro);
     listaPensao.appendChild(item);
     atualizarBtnAddPensao();
   }
@@ -780,9 +808,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function calcular() {
     const opt = selPosto.options[selPosto.selectedIndex];
-    let fator = 1;                                          // reajustes compostos
-    if (chkReaj  && chkReaj.checked)  fator *= 1 + REAJUSTE1_PCT / 100;
-    if (chkReaj2 && chkReaj2.checked) fator *= 1 + REAJUSTE2_PCT / 100;
+    const fator = FATOR_REAJUSTE;                           // reajustes compostos (fixos)
     const soldo   = (parseFloat(opt.value) || 0) * fator;  // value do #posto (× reajustes)
     const gretPct = parseFloat(opt.dataset.gret) || 0;     // data-gret do #posto
     const ghpPct  = parseFloat(selHab.value) || 0;         // value do #habilitacao
@@ -801,7 +827,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (difChk && difChk.checked) {
       if (ehCel) {
         dif = 0.20 * soldo; // Coronel: 20% do próprio soldo
-      } else if (selDif && selDif.value) {
+      } else if (selDif && selDif.value && (parseFloat(opt.value) || 0) > 0) { // sem posto selecionado (soldo 0): sem Dif
         dif = ((parseFloat(selDif.value) || 0) - (parseFloat(opt.value) || 0)) * fator;
         if (dif < 0) dif = 0; // proteção: substituto nunca abaixo do posto atual
       }
@@ -818,7 +844,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const geeChk = document.getElementById('gee-chk');
     const gee    = (ehCel && geeChk && geeChk.checked) ? 0.60 * (base + gret + ghp + gram) : 0;
 
-    const remBasica = base + gret + ghp + gram + trienio + gee;
+    // Det. Jud. Pecúnia (D21753): percentual sobre Soldo + Dif + GRET + GHP + Triênio.
+    // Integra a Remuneração Básica (aparece na composição, junto com seu percentual).
+    const chkPecunia = document.getElementById('vant-pecunia-chk');
+    const inpPecuniaPct = document.getElementById('vant-pecunia-pct');
+    const pecuniaPct = (chkPecunia && chkPecunia.checked) ? (parseFloat(String(inpPecuniaPct ? inpPecuniaPct.dataset.commit : 0).replace(',', '.')) || 0) : 0;
+    const pecunia = (base + gret + ghp + trienio) * pecuniaPct / 100;
+
+    const remBasica = base + gret + ghp + gram + trienio + gee + pecunia;
 
     // outras vantagens remuneratórias (TRIBUTÁVEIS, somadas -> Rem. Bruta); agrupadas
     let totalVant = 0;
@@ -835,6 +868,12 @@ document.addEventListener('DOMContentLoaded', function () {
         totalVind += parseFloat(String(inp.dataset.commit).replace(',', '.')) || 0;
       });
     }
+
+    // atalhos de verbas fixas (indenizatórias)
+    const chkAuxT = document.getElementById('vind-aux-transporte');
+    const chkEtapa = document.getElementById('vind-etapa');
+    if (chkAuxT && chkAuxT.checked) totalVind += valorAuxTransporte();
+    if (chkEtapa && chkEtapa.checked) totalVind += valorEtapaDestacado();
 
     // Gratificações de Comando PMERJ (fora da Rem. Básica, da Contribuição e do teto)
     let totalGratCmd = 0;
@@ -873,29 +912,55 @@ document.addEventListener('DOMContentLoaded', function () {
     if (elDescDiscMax)   elDescDiscMax.textContent = fmt.format(capDisc);
     if (elDescDiscAviso) elDescDiscAviso.style.display = (somaDisc > capDisc) ? 'block' : 'none';
 
-    // pensões (desconto): soma dos campos. Reduz o líquido E abate da base do IR.
-    let pensao = 0;
-    if (listaPensao) {
-      listaPensao.querySelectorAll('.pensao-input').forEach(function (inp) {
-        pensao += parseFloat(String(inp.dataset.commit).replace(',', '.')) || 0;
-      });
-    }
-
     // Rendimento Tributável (só para o redutor) = Rem. Bruta − Verbas Indenizatórias − (189,59 × dep) − FUSPOM
     const rendTrib = Math.max(0, remBruta - totalVind - dep * DED_DEP - fuspom);
 
     // IRPF (simulação)
-    // Base de Cálculo = Rem. Bruta − Verbas Indenizatórias − [Contrib. Militar + dependentes OU 607,20 (o maior)] − FUSPOM − Pensão(0)
+    // Base de Cálculo = Rem. Bruta − Verbas Indenizatórias − [Contrib. Militar + dependentes OU 607,20 (o maior)] − FUSPOM − Pensão paga
     const dedDep   = dep * DED_DEP;
     const parLegal = contribMil + dedDep;                       // Contrib. Militar + dependentes
     const parUsado = (parLegal < DESC_SIMPL) ? DESC_SIMPL : parLegal; // desconto simplificado se for maior
-    // isenção da GRAM no IR: se marcada, abate a GRAM da base de cálculo (não mexe no Rend. Tributável)
-    const chkIsencaoGram = document.getElementById('isencao-gram');
-    const abateGram = (chkIsencaoGram && chkIsencaoGram.checked) ? gram : 0;
-    const baseIR   = Math.max(0, remBruta - totalVind - parUsado - fuspom - pensao - abateGram - abateTeto);
-    const irBruto  = irTabela(baseIR);
-    const reducao  = redutorIR(rendTrib, irBruto);
-    const irrf     = Math.max(0, irBruto - reducao);
+    // IRRF em função do total de Pensão paga (a Pensão reduz a base do IR)
+    function calcIR(pens) {
+      const b = Math.max(0, remBruta - totalVind - parUsado - fuspom - pens - abateTeto);
+      const bruto = irTabela(b);
+      return { base: b, irrf: Math.max(0, bruto - redutorIR(rendTrib, bruto)) };
+    }
+
+    // Pensões: cada uma é um percentual inteiro (soma limitada a 100%), calculada SEPARADAMENTE
+    // sobre o líquido após os descontos obrigatórios: (Rem. Bruta − Verbas Indenizatórias) − Contrib. Militar − FUSPOM − Abate-teto − IRRF.
+    // (as verbas indenizatórias NÃO entram na base da pensão)
+    const pensoes = [];
+    let pctRestante = 100;
+    if (listaPensao) {
+      listaPensao.querySelectorAll('.pensao-input').forEach(function (inp) {
+        const p = Math.min(pctRestante, Math.max(0, parseInt(inp.dataset.commit, 10) || 0));
+        if (p <= 0) return;
+        pctRestante -= p;
+        pensoes.push({ nome: 'Pensão ' + (pensoes.length + 1), pct: p, valor: 0 });
+      });
+    }
+    const fracPensao = (100 - pctRestante) / 100;
+
+    // Dependência circular: o IRRF depende da Pensão (que reduz a base) e a Pensão depende do IRRF
+    // (calculada após ele). Resolvida por iteração: como a Pensão abate no máx. 27,5% da base,
+    // o processo é uma contração e converge em poucas voltas.
+    const antesIR = Math.max(0, remBruta - totalVind - contribMil - fuspom - abateTeto);
+    let ir = calcIR(0), pensTotal = 0;
+    for (let k = 0; k < 50; k++) {
+      const novaPens = Math.max(0, antesIR - ir.irrf) * fracPensao;
+      const novoIr = calcIR(novaPens);
+      const convergiu = Math.abs(novaPens - pensTotal) < 0.0001 && Math.abs(novoIr.irrf - ir.irrf) < 0.0001;
+      pensTotal = novaPens; ir = novoIr;
+      if (convergiu) break;
+    }
+    const basePensao = Math.max(0, antesIR - ir.irrf);
+    pensoes.forEach(function (p) { p.valor = Math.round(basePensao * p.pct) / 100; });   // cada uma, em centavos
+    const pensao = pensoes.reduce(function (s, x) { return s + x.valor; }, 0);            // total = soma das linhas
+    ir = calcIR(pensao);                                                                  // IRRF final com a pensão arredondada
+    const baseIR = ir.base;
+    const irrf   = ir.irrf;
+    document.body.dataset.pensoes = JSON.stringify(pensoes);
 
     // Remuneração Líquida = Rem. Bruta − todos os descontos
     const totalDescontos = contribMil + fuspom + descDisc + irrf + pensao + abateTeto;
@@ -909,10 +974,10 @@ document.addEventListener('DOMContentLoaded', function () {
     document.body.dataset.baseir = baseIR.toFixed(2);
     aplicarVisibilidadeZeros({
       't-soldo': soldo, 't-dif': dif, 't-gret': gret, 't-ghp': ghp,
-      't-gram': gram, 't-trienio': trienio, 't-gee': gee,
+      't-gram': gram, 't-trienio': trienio, 't-gee': gee, 't-pecunia': pecunia,
       't-vant': totalVant, 't-vind': totalVind, 't-gratcmd': totalGratCmd,
       't-abono': abono, 't-fuspom': fuspom, 't-desc-disc': descDisc,
-      't-irrf': irrf, 't-pensao': pensao, 't-abate': abateTeto
+      't-irrf': irrf, 't-abate': abateTeto
     });
 
     // detalhamento (table.breakdown)
@@ -926,6 +991,8 @@ document.addEventListener('DOMContentLoaded', function () {
     set('t-tri-p', pct(triPct));
     set('t-trienio', '+ ' + fmt.format(trienio));
     set('t-gee', '+ ' + fmt.format(gee));
+    set('t-pecunia-p', pct(pecuniaPct));
+    set('t-pecunia', '+ ' + fmt.format(pecunia));
     set('t-rem-basica', fmt.format(remBasica));
     set('t-vant', '+ ' + fmt.format(totalVant));
     set('t-vind', '+ ' + fmt.format(totalVind));
@@ -937,7 +1004,25 @@ document.addEventListener('DOMContentLoaded', function () {
     set('t-fuspom', '− ' + fmt.format(fuspom));
     set('t-desc-disc', '− ' + fmt.format(descDisc));
     set('t-irrf', '− ' + fmt.format(irrf));
-    set('t-pensao', '− ' + fmt.format(pensao));
+    // uma linha no breakdown para CADA pensão, logo após o IRRF
+    document.querySelectorAll('tr.pensao-row').forEach(function (tr) { tr.remove(); });
+    const irrfTr = document.getElementById('t-irrf') ? document.getElementById('t-irrf').closest('tr') : null;
+    if (irrfTr) {
+      let ancora = irrfTr;
+      pensoes.forEach(function (p) {
+        const tr = document.createElement('tr');
+        tr.className = 'pensao-row';
+        const td1 = document.createElement('td');
+        td1.className = 'lbl-cell';
+        td1.innerHTML = '(−) ' + p.nome + ' (' + p.pct + '%) <span class="badge-aux">judicial/acordo</span>';
+        const td2 = document.createElement('td');
+        td2.className = 'neg';
+        td2.textContent = '− ' + fmt.format(p.valor);
+        tr.appendChild(td1); tr.appendChild(td2);
+        ancora.parentNode.insertBefore(tr, ancora.nextSibling);
+        ancora = tr;
+      });
+    }
     set('t-abate', '− ' + fmt.format(abateTeto));
     set('t-liquido', fmt.format(liquido));
   }
@@ -1020,16 +1105,6 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   atualizarBtnAddPensao();
 
-  if (chkReaj) chkReaj.addEventListener('change', function () {
-    // 2º reajuste só fica disponível com o 1º ligado
-    if (chkReaj2) {
-      chkReaj2.disabled = !chkReaj.checked;
-      if (!chkReaj.checked) chkReaj2.checked = false;
-    }
-    calcular();
-  });
-  if (chkReaj2) chkReaj2.addEventListener('change', calcular);
-
   // esconde rubricas zeradas; comp-rows respeitam também o estado do "Ver detalhamento"
   let compAberta = false;
   function aplicarVisibilidadeZeros(valores) {
@@ -1097,9 +1172,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const podeTer = (p === 'Cel PM' || p === 'Ten Cel PM');
     card.style.display = podeTer ? '' : 'none';
     if (!podeTer) {
+      let zerou = false;
       card.querySelectorAll('.gratcmd-valor').forEach(function (inp) {
+        if (inp.dataset.commit !== '0') zerou = true;
         inp.value = '0'; inp.dataset.commit = '0';
       });
+      // este listener roda DEPOIS do cálculo principal: recalcula para tirar o valor antigo do resultado
+      if (zerou && posto) posto.dispatchEvent(new Event('change'));
     }
   }
   if (posto) posto.addEventListener('change', atualizarVisibilidade);
@@ -1116,7 +1195,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if (e.target && e.target.classList.contains('campo-ok')) {
       const item = e.target.closest('.field');
       const inp = item ? item.querySelector('input[type=number]') : null;
-      if (inp) inp.dataset.commit = String(Math.max(0, parseFloat(inp.value) || 0));
+      if (inp) {
+        const v = Math.max(0, parseFloat(inp.value) || 0); // nunca aceita negativo
+        inp.value = String(v);
+        inp.dataset.commit = String(v);
+      }
       e.target.style.background = ''; e.target.style.color = ''; e.target.textContent = '\u2713';
       if (posto) posto.dispatchEvent(new Event('change'));
     }
@@ -1140,21 +1223,84 @@ document.addEventListener('DOMContentLoaded', function () {
   if (chk && posto) chk.addEventListener('change', function () { posto.dispatchEvent(new Event('change')); });
 });
 
-// ===== Isenção de IRPF sobre a GRAM (decisão judicial/isenção específica) =====
+// Campos só-inteiros (Pecúnia e Pensão): bloqueia ponto, vírgula, sinais e "e" na digitação.
+// (Função local ao IIFE; ligada por addEventListener, sem handler inline nem global.)
+function bloquearNaoInteiro(e) {
+  if (['.', ',', '-', '+', 'e', 'E'].indexOf(e.key) >= 0) e.preventDefault();
+}
+
+// ===== Det. Judicial Pecúnia (D21753) — percentual sobre Soldo+Dif+GRET+GHP+Triênio =====
 document.addEventListener('DOMContentLoaded', function () {
-  const table = document.querySelector('table.breakdown');
-  if (!table) return;
-  const box = document.createElement('div');
-  box.style.cssText = 'margin-top:16px; padding-top:14px; border-top:1px solid var(--borda);';
-  box.innerHTML =
-    '<label for="isencao-gram" style="display:flex;align-items:center;gap:10px;font-weight:700;cursor:pointer;font-size:13px;">' +
-      '<input type="checkbox" id="isencao-gram"> Isenção de IRPF sobre a GRAM' +
-    '</label>' +
-    '<div class="hint" style="margin-top:6px; font-size:12px; font-style: italic">Se marcado, abate o valor da GRAM da base de cálculo do IRPF (decisão judicial/isenção específica).</div>';
-  table.parentNode.appendChild(box);
-  const chk = document.getElementById('isencao-gram');
+  const lista = document.getElementById('vant-lista');
+  const card = lista ? lista.closest('.card') : null;
+  if (!card || document.getElementById('vant-pecunia-chk')) return;
   const posto = document.getElementById('posto');
-  if (chk && posto) chk.addEventListener('change', function () { posto.dispatchEvent(new Event('change')); });
+
+  const box = document.createElement('div');
+  box.style.cssText = 'margin-top:10px; padding-top:12px; border-top:1px dashed var(--borda);';
+  box.innerHTML =
+    '<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">' +
+      '<label style="display:flex; align-items:center; gap:8px; font-weight:700; cursor:pointer; font-size:13px; margin:0; flex:1;">' +
+        '<input type="checkbox" id="vant-pecunia-chk"> Det. Jud. Pecúnia — D21753' +
+      '</label>' +
+      '<div id="vant-pecunia-wrap" style="display:none; align-items:center; gap:6px;">' +
+        '<div class="money-row" style="flex:0 0 90px;">' +
+          '<span class="money-prefix" style="min-width:34px;">%</span>' +
+          '<input type="number" id="vant-pecunia-pct" data-commit="0" value="0" min="0" max="100" step="1" inputmode="numeric" style="padding:10px 8px; font-size:13px;">' +
+        '</div>' +
+        '<button type="button" class="cen-btn campo-ok" id="vant-pecunia-ok" style="flex:0 0 auto; width:auto; padding:5px 8px; font-size:13px; line-height:1;" title="Confirmar (efetivar valor)">✓</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="hint-exp" style="margin-top:8px;">Determinação judicial de pecúnia (D21753): percentual aplicado sobre Soldo + Dif-Posto/Grad + GRET + GHP + Triênio. Integra a Remuneração Básica.</div>';
+  card.appendChild(box);
+
+  const chk = document.getElementById('vant-pecunia-chk');
+  const wrap = document.getElementById('vant-pecunia-wrap');
+  const inpPct = document.getElementById('vant-pecunia-pct');
+  const btnOk = document.getElementById('vant-pecunia-ok');
+  inpPct.addEventListener('keydown', bloquearNaoInteiro);
+
+  function recalcular() { if (posto) posto.dispatchEvent(new Event('change')); }
+
+  chk.addEventListener('change', function () {
+    wrap.style.display = chk.checked ? 'flex' : 'none';
+    recalcular();
+  });
+  inpPct.addEventListener('input', function () {
+    btnOk.style.background = 'var(--acento)'; btnOk.style.color = '#fff';
+  });
+  btnOk.addEventListener('click', function () {
+    const v = Math.min(100, Math.max(0, Math.round(parseFloat(inpPct.value) || 0))); // inteiro de 0 a 100%
+    inpPct.value = String(v);
+    inpPct.dataset.commit = String(v);
+    btnOk.style.background = ''; btnOk.style.color = ''; btnOk.textContent = '✓';
+    recalcular();
+  });
+});
+
+// ===== Atalhos de verbas indenizatórias fixas (Aux. Transporte, Etapa Destacado) =====
+document.addEventListener('DOMContentLoaded', function () {
+  const lista = document.getElementById('vind-lista');
+  const card = lista ? lista.closest('.card') : null;
+  if (!card || document.getElementById('vind-aux-transporte')) return;
+  const posto = document.getElementById('posto');
+  const box = document.createElement('div');
+  box.style.cssText = 'margin-top:10px; padding-top:12px; border-top:1px dashed var(--borda); display:flex; flex-direction:column; gap:8px;';
+  box.innerHTML =
+    '<div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-soft);">Atalhos \u2014 verbas fixas</div>' +
+    '<label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer; font-size:13px; margin:0;"><input type="checkbox" id="vind-aux-transporte"> Auxílio Transporte (R$ 350,00)</label>' +
+    '<label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer; font-size:13px; margin:0;"><input type="checkbox" id="vind-etapa"> <span id="vind-etapa-lbl">Etapa (Destacado)</span></label>';
+  card.appendChild(box);
+  function atualizarEtapaLbl() {
+    const lbl = document.getElementById('vind-etapa-lbl');
+    if (lbl) lbl.textContent = 'Etapa (Destacado) \u2014 R$ ' + valorEtapaDestacado().toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  atualizarEtapaLbl();
+  if (posto) posto.addEventListener('change', atualizarEtapaLbl);
+  ['vind-aux-transporte', 'vind-etapa'].forEach(function (id) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', function () { if (posto) posto.dispatchEvent(new Event('change')); });
+  });
 });
 
 })();
