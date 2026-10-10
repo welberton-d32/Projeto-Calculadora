@@ -403,7 +403,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 });
 
-// ===== Helper: contagem de triênios pela data de praça =====
+// ===== Helper: contagem de triênios pelas datas de praça e de inatividade e pelo tempo averbado =====
 document.addEventListener('DOMContentLoaded', function () {
   const inputData = document.getElementById('data-praca');
   const inputFim = document.getElementById('data-inatividade');
@@ -411,12 +411,16 @@ document.addEventListener('DOMContentLoaded', function () {
   const elCount = document.getElementById('trienios-count');
   const elPct = document.getElementById('trienios-pct');
   const elAviso = document.getElementById('trienios-aviso');
+  const elDetalhe = document.getElementById('trienios-detalhe');
+  const listaAv = document.getElementById('averbado-lista');
+  const btnAddAv = document.getElementById('btn-add-averbado');
 
   // Guarda de depuração: avisa no console se algum id não existir
-  if (!inputData || !inputFim || !btn || !elCount || !elPct || !elAviso) {
+  if (!inputData || !inputFim || !btn || !elCount || !elPct || !elAviso || !elDetalhe || !listaAv || !btnAddAv) {
     console.error('Helper de triênios: elemento não encontrado. Confira os id ' +
-      'data-praca, data-inatividade, btn-trienios, trienios-count, trienios-pct, trienios-aviso.', {
-        inputData: !!inputData, inputFim: !!inputFim, btn: !!btn, elCount: !!elCount, elPct: !!elPct, elAviso: !!elAviso
+      'data-praca, data-inatividade, btn-trienios, trienios-count, trienios-pct, trienios-aviso, trienios-detalhe, averbado-lista, btn-add-averbado.', {
+        inputData: !!inputData, inputFim: !!inputFim, btn: !!btn, elCount: !!elCount, elPct: !!elPct,
+        elAviso: !!elAviso, elDetalhe: !!elDetalhe, listaAv: !!listaAv, btnAddAv: !!btnAddAv
       });
     return;
   }
@@ -427,15 +431,110 @@ document.addEventListener('DOMContentLoaded', function () {
     return Math.min(60, 5 + 5 * trienios);
   }
 
+  // Convenção da soma: 12 meses = 1 ano e 30 dias = 1 mês (a confirmar com a norma de averbação).
+  const DIAS_POR_MES = 30;
+  const MAX_AVERBADO = 5; // limite de linhas de tempo averbado
+
+  // Diferença de calendário entre duas datas, em anos/meses/dias (null se fim < início).
+  function diferencaYMD(ini, fim) {
+    const i = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate());
+    const f = new Date(fim.getFullYear(), fim.getMonth(), fim.getDate());
+    if (f < i) return null;
+    let a = f.getFullYear() - i.getFullYear();
+    let m = f.getMonth() - i.getMonth();
+    let d = f.getDate() - i.getDate();
+    if (d < 0) { m--; d += new Date(f.getFullYear(), f.getMonth(), 0).getDate(); } // dias do mês anterior
+    if (m < 0) { a--; m += 12; }
+    return { a: a, m: m, d: d };
+  }
+
+  function normalizar(t) {
+    let a = t.a, m = t.m, d = t.d;
+    m += Math.floor(d / DIAS_POR_MES); d = d % DIAS_POR_MES;
+    a += Math.floor(m / 12);           m = m % 12;
+    return { a: a, m: m, d: d };
+  }
+  function fmtTempo(t) { return t.a + 'a ' + t.m + 'm ' + t.d + 'd'; }
+  function inteiroNaoNegativo(v) { return Math.min(999, Math.max(0, Math.floor(parseFloat(v) || 0))); }
+
+  // Soma de todas as linhas de tempo averbado (entradas inválidas viram 0)
+  function lerAverbado() {
+    const soma = { a: 0, m: 0, d: 0 };
+    listaAv.querySelectorAll('.averbado-item').forEach(function (it) {
+      soma.a += inteiroNaoNegativo(it.querySelector('.averbado-a').value);
+      soma.m += inteiroNaoNegativo(it.querySelector('.averbado-m').value);
+      soma.d += inteiroNaoNegativo(it.querySelector('.averbado-d').value);
+    });
+    return soma;
+  }
+
+  function criarLinhaAverbado() {
+    if (listaAv.children.length >= MAX_AVERBADO) return;
+    const campo = 'flex:0 0 70px; padding:10px 8px; font-size:13px;';
+    const item = document.createElement('div');
+    item.className = 'field averbado-item';
+    item.style.cssText = 'display:flex; gap:8px; align-items:center; flex-wrap:wrap;';
+    item.innerHTML =
+      '<input type="text" class="averbado-nome" placeholder="Força / origem (opcional)" maxlength="40" ' +
+        'style="flex:1 1 150px; padding:10px 12px; border:1px solid var(--borda); border-radius:4px; font-size:14px; font-family:inherit; color:var(--texto); background:#fff;">' +
+      '<input type="number" class="averbado-num averbado-a" min="0" max="999" step="1" value="0" inputmode="numeric" title="Anos" aria-label="Anos" style="' + campo + '">' +
+      '<span class="hint" style="margin:0;">a</span>' +
+      '<input type="number" class="averbado-num averbado-m" min="0" max="999" step="1" value="0" inputmode="numeric" title="Meses" aria-label="Meses" style="' + campo + '">' +
+      '<span class="hint" style="margin:0;">m</span>' +
+      '<input type="number" class="averbado-num averbado-d" min="0" max="999" step="1" value="0" inputmode="numeric" title="Dias" aria-label="Dias" style="' + campo + '">' +
+      '<span class="hint" style="margin:0;">d</span>' +
+      '<button type="button" class="cen-btn averbado-rem" style="flex:0 0 auto; width:auto; padding:5px 8px; font-size:13px; line-height:1;" title="Remover">×</button>';
+    listaAv.appendChild(item);
+    atualizarBtnAddAverbado();
+  }
+
+  function atualizarBtnAddAverbado() {
+    const cheio = listaAv.children.length >= MAX_AVERBADO;
+    btnAddAv.disabled = cheio;
+    btnAddAv.style.opacity = cheio ? '0.5' : '1';
+    btnAddAv.textContent = cheio ? 'Limite de 5 tempos averbados atingido' : '+ Adicionar tempo averbado';
+  }
+
+  btnAddAv.addEventListener('click', criarLinhaAverbado);
+  listaAv.addEventListener('click', function (e) {
+    if (e.target && e.target.classList.contains('averbado-rem')) {
+      const item = e.target.closest('.averbado-item');
+      if (item) item.remove();
+      atualizarBtnAddAverbado();
+    }
+  });
+  // só números inteiros: bloqueia ponto, vírgula, sinais e "e" na digitação
+  listaAv.addEventListener('keydown', function (e) {
+    if (e.target && e.target.classList.contains('averbado-num') &&
+        ['.', ',', '-', '+', 'e', 'E'].indexOf(e.key) >= 0) e.preventDefault();
+  });
+  atualizarBtnAddAverbado();
+
+  // Mostra o resultado e a conta feita (período na PMERJ + tempo averbado = total)
+  function mostrarResultado(pm) {
+    const av = lerAverbado();
+    const temAv = (av.a + av.m + av.d) > 0;
+    // sem tempo averbado, usa a contagem de calendário como está (sem converter 30 dias em 1 mês)
+    const total = temAv ? normalizar({ a: pm.a + av.a, m: pm.m + av.m, d: pm.d + av.d }) : pm;
+    const trienios = Math.floor(total.a / 3);
+    const pct = percentualSugerido(trienios);
+    elCount.textContent = trienios + (trienios === 1 ? ' triênio' : ' triênios');
+    elPct.textContent = pct + '%';
+    elDetalhe.textContent = 'PMERJ ' + fmtTempo(pm) +
+      (temAv ? ' + outras forças ' + fmtTempo(normalizar(av)) + ' = ' + fmtTempo(total) : '') +
+      ' → ' + trienios + (trienios === 1 ? ' triênio' : ' triênios') + ', sugerido ' + pct + '%';
+  }
+
   function mostrarAviso(msg) {
     elAviso.textContent = msg || '';
     elAviso.style.display = msg ? 'block' : 'none';
   }
 
-  // Veterano: o tempo de serviço é contado da data de praça até a data da passagem
+  // Veterano: o tempo na PMERJ é contado da data de praça até a data da passagem
   // para a inatividade (e não até hoje).
   function calcularTrienios() {
     mostrarAviso('');
+    elDetalhe.textContent = '';
     if (!inputData.value) { elCount.textContent = '—'; elPct.textContent = '—'; return; }
     if (!inputFim.value) {
       elCount.textContent = '—'; elPct.textContent = '—';
@@ -443,24 +542,14 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
-    const dataPraca = new Date(inputData.value + 'T00:00:00');
-    const dataFim = new Date(inputFim.value + 'T00:00:00');
-
-    // anos completos por calendário (respeita bissextos): só conta o aniversário no próprio dia
-    let anos = dataFim.getFullYear() - dataPraca.getFullYear();
-    const aindaNaoFez = (dataFim.getMonth() < dataPraca.getMonth()) ||
-      (dataFim.getMonth() === dataPraca.getMonth() && dataFim.getDate() < dataPraca.getDate());
-    if (aindaNaoFez) anos--;
-
-    if (!Number.isFinite(anos) || anos < 0) {
+    const pm = diferencaYMD(new Date(inputData.value + 'T00:00:00'), new Date(inputFim.value + 'T00:00:00'));
+    if (!pm) {
       elCount.textContent = '0'; elPct.textContent = '0%';
       mostrarAviso('A data da inatividade é anterior à data de praça. Confira as datas.');
       return;
     }
 
-    const trienios = Math.floor(anos / 3);
-    elCount.textContent = trienios + (trienios === 1 ? ' triênio' : ' triênios');
-    elPct.textContent = percentualSugerido(trienios) + '%';
+    mostrarResultado(pm);
   }
 
   btn.addEventListener('click', calcularTrienios);
