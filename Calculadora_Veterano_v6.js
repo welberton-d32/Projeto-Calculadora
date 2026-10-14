@@ -362,7 +362,19 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
   if (idxUsuario < 0) {
-    console.warn('Simulador: patente do usuário ("' + postoUsuario + '") não encontrada na lista de postos/graduações. Exibindo lista completa.');
+    // Patente informada mas não reconhecida: NÃO libera nenhum posto (a lista não é exibida).
+    console.warn('Simulador: patente do usuário ("' + postoUsuario + '") não encontrada na lista de postos/graduações. Nenhum posto liberado.');
+    while (posto.options.length) posto.remove(0);
+    const vazio = document.createElement('option');
+    vazio.value = '0';
+    vazio.textContent = 'Patente não reconhecida';
+    posto.appendChild(vazio);
+    posto.disabled = true;
+    const aviso = document.createElement('div');
+    aviso.className = 'hint';
+    aviso.style.color = 'var(--vermelho)';
+    aviso.textContent = 'Não foi possível identificar a patente informada ("' + postoUsuario + '"). Nenhum posto está disponível.';
+    posto.insertAdjacentElement('afterend', aviso);
     return;
   }
 
