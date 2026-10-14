@@ -324,6 +324,21 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!txt) return '';
     return txt.split(' - ')[0].trim();
   }
+  // Chave de comparação tolerante: ignora maiúsculas, acentos, espaços, pontos, hífens
+  // e o símbolo de ordinal, e entende abreviações/por extenso.
+  // Ex.: "SUBTEN PM", "Sub Ten PM", "Subtenente PM" e "SUB-TEN" dão a mesma chave.
+  function chavePosto(txt) {
+    let s = String(txt || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    s = s.replace(/(\d)\s*[oa°ºª]?(?=[\s.\-]|$)/g, '$1');   // 1º / 1° / 1o / 1ª -> 1
+    s = s.replace(/\b(subtenente|sub-tenente)\b/g, 'subten')
+         .replace(/\btenente\b/g, 'ten').replace(/\bcoronel\b/g, 'cel')
+         .replace(/\bmajor\b/g, 'maj').replace(/\bcapitao\b/g, 'cap')
+         .replace(/\baspirante\b/g, 'asp').replace(/\boficial\b/g, 'of').replace(/\basp\s+a\s+of\b/g, 'asp of')
+         .replace(/\bsargento\b/g, 'sgt').replace(/\bcabo\b/g, 'cb')
+         .replace(/\bsoldado\b/g, 'sd').replace(/\bcadete\b/g, 'cad');
+    s = s.replace(/[^a-z0-9]+/g, '');
+    return s.replace(/pm$/, '');                                             // "PM" final é opcional
+  }
   function obterPostoUsuario() {
     if (typeof window.PMERJ_USER_POSTO === 'string' && window.PMERJ_USER_POSTO.trim()) {
       return normalizarPosto(window.PMERJ_USER_POSTO);
@@ -341,7 +356,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   let idxUsuario = -1;
   for (let i = 0; i < posto.options.length; i++) {
-    if (posto.options[i].textContent.trim().toLowerCase() === postoUsuario.toLowerCase()) {
+    if (chavePosto(posto.options[i].textContent) === chavePosto(postoUsuario)) {
       idxUsuario = i;
       break;
     }
